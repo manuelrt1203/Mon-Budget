@@ -1,7 +1,7 @@
 // Service worker minimal : rend l'application installable et ouvrable hors ligne.
-// Il ne met en cache que des fichiers statiques de l'application. Il n'intercepte JAMAIS /api/
+// Il ne met en cache que la page d'accueil et les fichiers compilés (/assets/). Il n'intercepte JAMAIS /api/
 // (connexion bancaire, soldes, opérations) : ces échanges passent toujours directement par le réseau.
-const CACHE = 'mon-budget-static-v1';
+const CACHE = 'mon-budget-static-v2';
 
 self.addEventListener('install', () => self.skipWaiting());
 
@@ -12,20 +12,38 @@ self.addEventListener('activate', event => {
   })());
 });
 
+/** Mémorise la page d'accueil, précharge les fichiers compilés qu'elle référence et purge les anciens. */
+async function cacheShell(response) {
+  if (response.status !== 200) return;
+  const cache = await caches.open(CACHE);
+  const assets = [...new Set((await response.clone().text()).match(/\/assets\/[^"'\s)]+/g) ?? [])];
+  await cache.put('/', response);
+  await Promise.all(assets.map(async path => {
+    if (await cache.match(path)) return;
+    const asset = await fetch(path);
+    if (asset.status === 200) await cache.put(path, asset);
+  }));
+  for (const request of await cache.keys()) {
+    const { pathname } = new URL(request.url);
+    if (pathname.startsWith('/assets/') && !assets.includes(pathname)) await cache.delete(request);
+  }
+}
+
 self.addEventListener('fetch', event => {
   const request = event.request;
   const url = new URL(request.url);
   if (request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
 
-  // Pages : réseau d'abord (toujours la dernière version), copie locale si hors ligne.
+  // Pages : réseau d'abord (toujours la dernière version). Seule la page d'accueil est mémorisée ;
+  // les pages légales ne doivent jamais remplacer l'application dans le cache.
   if (request.mode === 'navigate') {
     event.respondWith((async () => {
       try {
         const response = await fetch(request);
-        if (response.ok) (await caches.open(CACHE)).put('/', response.clone());
+        if (url.pathname === '/') event.waitUntil(cacheShell(response.clone()).catch(() => {}));
         return response;
       } catch {
-        return (await caches.match('/')) ?? Response.error();
+        return (url.pathname === '/' ? await caches.match('/') : undefined) ?? Response.error();
       }
     })());
     return;
@@ -37,7 +55,7 @@ self.addEventListener('fetch', event => {
       const cached = await caches.match(request);
       if (cached) return cached;
       const response = await fetch(request);
-      if (response.ok) (await caches.open(CACHE)).put(request, response.clone());
+      if (response.status === 200) event.waitUntil(caches.open(CACHE).then(cache => cache.put(request, response.clone())).catch(() => {}));
       return response;
     })());
   }

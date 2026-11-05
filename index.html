@@ -10,10 +10,7 @@
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <title>Mon Budget — mon argent, simplement</title>
-    <script>
-      // Applique le thème choisi avant le premier affichage (évite un flash clair).
-      try { var t = localStorage.getItem('mon-budget-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
-    </script>
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <div id="app"></div>

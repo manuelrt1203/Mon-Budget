@@ -35,6 +35,7 @@ const budgetLabel = c => (c === 'Autres' ? 'Autres / à classer' : c);
 const loaded = loadState();
 let state = loaded.state;
 let unreadable = loaded.error === 'unreadable';
+let droppedAtLoad = loaded.dropped ?? 0;
 let storageFailed = false;
 let month = currentMonth();
 const ui = { query: '', type: 'all', category: 'all', sort: 'date-desc', allMonths: false, limit: 50 };
@@ -116,7 +117,7 @@ $('#app').innerHTML = `
       <fieldset class="scope">
         <legend>Appliquer ces plafonds</legend>
         <label><input type="radio" name="scope" value="month"><span id="scope-month"></span></label>
-        <label><input type="radio" name="scope" value="all"><span>À tous les mois <small>(valeurs par défaut ; les mois déjà personnalisés les conservent)</small></span></label>
+        <label><input type="radio" name="scope" value="all"><span>À tous les mois <small>(valeurs par défaut ; les autres mois déjà personnalisés gardent leurs plafonds)</small></span></label>
       </fieldset>
       <div id="budget-fields"></div>
       <div class="dialog-actions"><button type="button" class="btn ghost" data-action="close-dialog">Annuler</button><button type="submit" class="btn primary">Enregistrer les budgets</button></div>
@@ -177,7 +178,7 @@ function budgetRow(category, spent, limit) {
     <span class="cat-icon cat-${i}">${categoryIcon(category)}</span>
     <div class="budget-body">
       <div class="budget-top"><strong>${budgetLabel(category)}</strong><span class="budget-figures"><b>${money(spent)}</b> / ${money(limit)}</span></div>
-      <div class="track" role="progressbar" aria-label="${budgetLabel(category)}" aria-valuemin="0" aria-valuemax="${limit}" aria-valuenow="${Math.min(spent, limit)}" aria-valuetext="${money(spent)} dépensés sur ${money(limit)}"><span style="width:${width}%"></span></div>
+      <div class="track" role="progressbar" aria-label="${budgetLabel(category)}" aria-valuemin="0" aria-valuemax="${Math.max(limit, 1)}" aria-valuenow="${Math.min(spent, Math.max(limit, 1))}" aria-valuetext="${money(spent)} dépensés sur ${money(limit)}"><span style="width:${width}%"></span></div>
       <p class="budget-note">${level === 'ok' ? '' : icon('alert', 14)}${note}</p>
     </div>
   </li>`;
@@ -321,10 +322,10 @@ function operationsView() {
   return `
   ${pageHeader('Tout ce qui bouge', 'Mes opérations', 'Cherchez, filtrez, corrigez : vos saisies sont modifiables, les opérations Revolut se reclassent d’un clic.', addButton)}
   ${ui.allMonths ? '' : monthBar()}
-  <form class="toolbar" role="search" aria-label="Filtrer les opérations" onsubmit="return false">
+  <form class="toolbar" role="search" aria-label="Filtrer les opérations">
     <div class="field grow"><label for="flt-q">Rechercher</label><div class="search-box">${icon('search', 18)}<input id="flt-q" type="search" data-filter="query" value="${escape(ui.query)}" placeholder="Libellé…" autocomplete="off"></div></div>
     <div class="field"><label for="flt-type">Afficher</label><select id="flt-type" data-filter="type">${typeFilters.map(([v, l]) => `<option value="${v}" ${ui.type === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
-    <div class="field"><label for="flt-cat">Catégorie</label><select id="flt-cat" data-filter="category"><option value="all">Toutes</option>${categories.map(c => `<option ${ui.category === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
+    <div class="field"><label for="flt-cat">Catégorie</label><select id="flt-cat" data-filter="category"><option value="all">Toutes</option>${categories.map(c => `<option value="${escape(c)}" ${ui.category === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
     <div class="field"><label for="flt-sort">Trier par</label><select id="flt-sort" data-filter="sort">${sortOptions.map(([v, l]) => `<option value="${v}" ${ui.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
     <label class="check"><input type="checkbox" id="flt-all" data-filter="allMonths" ${ui.allMonths ? 'checked' : ''}><span>Tous les mois</span></label>
   </form>
@@ -361,7 +362,7 @@ function budgetsView() {
   ${custom ? `<p class="banner">${icon('alert', 18)}<span>Plafonds personnalisés pour ${longMonth(month)}.</span><button class="btn ghost small" data-action="reset-month-limits">Revenir aux valeurs par défaut</button></p>` : ''}
   <section class="panel" aria-labelledby="total-title">
     <div class="panel-head"><div><h2 id="total-title">Budget total de ${longMonth(month)}</h2><p>${money(s.budgetExpenses)} dépensés sur ${money(totalBudget)}</p></div></div>
-    <div class="track big" role="progressbar" aria-labelledby="total-title" aria-valuemin="0" aria-valuemax="${totalBudget}" aria-valuenow="${Math.min(s.budgetExpenses, totalBudget)}" aria-valuetext="${money(s.budgetExpenses)} dépensés sur ${money(totalBudget)}"><span style="width:${share}%"></span></div>
+    <div class="track big" role="progressbar" aria-labelledby="total-title" aria-valuemin="0" aria-valuemax="${Math.max(totalBudget, 1)}" aria-valuenow="${Math.min(s.budgetExpenses, Math.max(totalBudget, 1))}" aria-valuetext="${money(s.budgetExpenses)} dépensés sur ${money(totalBudget)}"><span style="width:${share}%"></span></div>
     <p class="budget-footer">${s.budgetExpenses > totalBudget ? `Budget total dépassé de ${money(s.budgetExpenses - totalBudget)}` : `Encore ${money(totalBudget - s.budgetExpenses)} dans votre budget hors virements`}</p>
   </section>
   <section class="panel" aria-labelledby="cats-title">
@@ -409,6 +410,7 @@ const routeName = () => {
 
 function renderNotice() {
   const messages = [];
+  if (droppedAtLoad) messages.push(`Des données enregistrées étaient invalides : ${plural(droppedAtLoad, 'opération')} ${droppedAtLoad > 1 ? 'ont été écartées' : 'a été écartée'}. Une copie brute des données d’origine est conservée sur cet appareil.`);
   if (unreadable) messages.push('Vos données enregistrées étaient illisibles. Une copie brute est conservée sur cet appareil et vous repartez d’un budget vide : importez une sauvegarde si vous en avez une.');
   if (storageFailed) messages.push('La sauvegarde locale est indisponible : vos changements seront perdus à la fermeture. Pensez à exporter vos données.');
   $('#notice').innerHTML = messages.map(m => `<p class="banner warn">${icon('alert', 18)}<span>${m}</span></p>`).join('');
@@ -474,7 +476,7 @@ function choose({ title, message, choices }) {
   const dialog = $('#choice-dialog');
   $('#choice-title').textContent = title;
   $('#choice-message').textContent = message;
-  $('#choice-actions').innerHTML = choices.map(c => `<button class="btn ${c.style ?? 'ghost'}" value="${c.value}">${escape(c.label)}</button>`).join('');
+  $('#choice-actions').innerHTML = choices.map(c => `<button class="btn ${c.style ?? 'ghost'}" value="${escape(c.value)}">${escape(c.label)}</button>`).join('');
   return new Promise(resolve => {
     dialog.addEventListener('close', () => resolve(dialog.returnValue), { once: true });
     dialog.returnValue = '';
@@ -617,15 +619,18 @@ async function importFile(file) {
   const parsed = parseBackup(await file.text());
   if (!parsed.ok) return toast(parsed.error);
   const count = parsed.state.transactions.length;
+  const revolut = parsed.state.transactions.filter(isBank).length;
+  const revolutNote = revolut ? ` Dont ${plural(revolut, 'opération')} marquée${revolut > 1 ? 's' : ''} « Revolut » : elles viennent du fichier, pas de la banque. Ne les importez que si vous l’avez créé vous-même.` : '';
   const ignored = parsed.ignored ? ` ${plural(parsed.ignored, 'entrée')} invalide${parsed.ignored > 1 ? 's' : ''} ou en double ${parsed.ignored > 1 ? 'seront ignorées' : 'sera ignorée'}.` : '';
   const choice = await choose({
     title: 'Importer cette sauvegarde ?',
-    message: `${plural(count, 'opération')} trouvée${count > 1 ? 's' : ''}.${ignored} Fusionner ajoute les opérations manquantes ; remplacer efface vos données actuelles.`,
+    message: `${plural(count, 'opération')} trouvée${count > 1 ? 's' : ''}.${revolutNote}${ignored} Fusionner ajoute les opérations manquantes ; remplacer efface vos données actuelles.`,
     choices: [{ value: 'cancel', label: 'Annuler' }, { value: 'replace', label: 'Remplacer', style: 'danger' }, { value: 'merge', label: 'Fusionner', style: 'primary' }],
   });
   if (choice !== 'merge' && choice !== 'replace') return;
   state = choice === 'merge' ? mergeStates(state, parsed.state) : parsed.state;
   unreadable = false;
+  droppedAtLoad = 0;
   persist();
   render();
   toast(choice === 'merge' ? 'Sauvegarde fusionnée.' : 'Sauvegarde restaurée.');
@@ -636,6 +641,7 @@ async function resetAll() {
   if (!ok) return;
   state = emptyState();
   unreadable = false;
+  droppedAtLoad = 0;
   persist();
   render();
   toast('Données effacées.');
@@ -648,7 +654,7 @@ const actions = {
   edit: el => openOperation(state.transactions.find(t => t.id === el.dataset.id)),
   delete: el => deleteOperation(el.dataset.id),
   more: () => { ui.limit += 50; $('#op-results').innerHTML = opResults(); },
-  'show-review': () => { Object.assign(ui, { type: 'review', category: 'all', query: '', allMonths: false }); location.hash = '#/operations'; },
+  'show-review': () => { Object.assign(ui, { type: 'review', category: 'all', query: '', allMonths: false }); if (routeName() === 'operations') render({ focus: 'h1' }); else location.hash = '#/operations'; },
   'prev-month': () => setMonth(shiftMonth(month, -1), '[data-action="prev-month"]'),
   'next-month': () => setMonth(shiftMonth(month, 1), '[data-action="next-month"]'),
   'this-month': () => setMonth(currentMonth(), '[data-action="prev-month"]'),
@@ -661,10 +667,13 @@ const actions = {
   'close-dialog': el => el.closest('dialog').close(),
 };
 
+// Un dialogue ne se ferme que si le clic a commencé ET fini sur le fond : sélectionner du texte et relâcher en dehors ne perd plus la saisie.
+let pressTarget = null;
+document.addEventListener('mousedown', event => { pressTarget = event.target; });
 document.addEventListener('click', event => {
   const el = event.target.closest('[data-action]');
   if (el && !el.disabled) actions[el.dataset.action]?.(el);
-  if (event.target instanceof HTMLDialogElement) event.target.close(); // clic sur le fond
+  if (event.target instanceof HTMLDialogElement && pressTarget === event.target) event.target.close(); // clic sur le fond
 });
 
 document.addEventListener('input', event => {
@@ -686,6 +695,7 @@ document.addEventListener('change', event => {
   if (el.dataset?.categoryId && categories.includes(el.value)) recategorize(el.dataset.categoryId, el.value);
 });
 
+document.addEventListener('submit', event => { if (event.target.matches('.toolbar')) event.preventDefault(); }); // filtres : pas de rechargement de page
 $('#op-form').addEventListener('submit', submitOperation);
 $('#budget-form').addEventListener('submit', submitBudgets);
 $('#op-form').addEventListener('input', event => {

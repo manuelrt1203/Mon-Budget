@@ -9,12 +9,17 @@ export function loadState() {
   let raw = null;
   try {
     raw = localStorage.getItem(KEY);
-    if (raw === null) return { state: emptyState(), error: null };
-    return { state: normalizeState(JSON.parse(raw)), error: null };
+    if (raw === null) return { state: emptyState(), error: null, dropped: 0 };
+    const parsed = JSON.parse(raw);
+    const state = normalizeState(parsed);
+    const dropped = (Array.isArray(parsed?.transactions) ? parsed.transactions.length : 0) - state.transactions.length;
+    // Des opérations ont été écartées (invalides ou aux règles plus strictes) : on garde l'original avant toute réécriture.
+    if (dropped > 0) { try { localStorage.setItem(CORRUPTED_KEY, raw); } catch { /* stockage indisponible */ } }
+    return { state, error: null, dropped };
   } catch {
     // On garde une copie du contenu illisible plutôt que de l'écraser silencieusement.
     try { if (raw) localStorage.setItem(CORRUPTED_KEY, raw); } catch { /* stockage indisponible */ }
-    return { state: emptyState(), error: 'unreadable' };
+    return { state: emptyState(), error: 'unreadable', dropped: 0 };
   }
 }
 

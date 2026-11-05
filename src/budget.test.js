@@ -173,3 +173,38 @@ test('lit les montants saisis à la française', () => {
   assert.equal(parseAmount(' 1 200.5 '), 1200.5);
   for (const bad of ['', 'abc', '-3', '1,234', '1e3']) assert.ok(Number.isNaN(parseAmount(bad)), bad);
 });
+
+// ---------- Corrections issues des revues de code et de sécurité ----------
+
+test('refuse un montant qui s’arrondit à 0,00 €', () => {
+  assert.equal(validateTransaction({ ...tx, amount: 1e-9 }), false);
+  assert.equal(validateTransaction({ ...tx, amount: 0.004 }), false);
+  assert.equal(validateTransaction({ ...tx, amount: 0.01 }), true);
+});
+
+test('écarte un identifiant de forme bancaire sans origine Revolut (il bloquerait la synchronisation)', () => {
+  const fake = { ...tx, id: `bank-${'f'.repeat(64)}` };
+  const real = { ...fake, id: `bank-${'e'.repeat(64)}`, source: 'revolut', categorySource: 'unclassified', category: 'Autres' };
+  const state = normalizeState({ transactions: [fake, real] });
+  assert.deepEqual(state.transactions.map(t => t.id), [real.id]);
+  assert.equal(parseBackup(JSON.stringify({ transactions: [fake, real] })).ignored, 1);
+});
+
+test('plafonne le nombre d’opérations importées', () => {
+  const many = Array.from({ length: 20005 }, (_, i) => ({ ...tx, id: `n${i}` }));
+  const parsed = parseBackup(JSON.stringify({ transactions: many }));
+  assert.equal(parsed.state.transactions.length, 20000);
+  assert.equal(parsed.ignored, 5);
+});
+
+test('la série des mois ignore les opérations hors période et les virements, en un passage', () => {
+  const list = [
+    { ...tx, id: 'old', date: '2025-01-05', amount: 999 },
+    { ...tx, id: 'in', type: 'income', category: 'Autres', date: '2026-10-02', amount: 100.1 },
+    { ...tx, id: 'ex', date: '2026-10-09', amount: 20.2 },
+    { ...tx, id: 'tr', date: '2026-10-10', amount: 500, category: 'Virement sortant' },
+  ];
+  const oct = monthlySeries(list, '2026-11').find(s => s.month === '2026-10');
+  assert.deepEqual(oct, { month: '2026-10', income: 100.1, expenses: 20.2 });
+  assert.equal(monthlySeries(list, '2026-11').reduce((s, m) => s + m.expenses, 0), 20.2);
+});

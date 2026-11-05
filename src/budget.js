@@ -10,6 +10,9 @@ export const defaultLimits = { Alimentation: 200, Logement: 450, Transport: 50, 
 
 const MAX_AMOUNT = 1_000_000_000;
 const BANK_ID = /^bank-[a-f0-9]{64}$/;
+const MAX_TRANSACTIONS = 20000; // au-delà, le calcul à chaque affichage deviendrait lent (import malveillant ou erroné)
+/** Un identifiant de forme bancaire sans origine Revolut : il bloquerait la synchronisation (collision d'id), on l'écarte. */
+const isFakeBankId = t => BANK_ID.test(t.id) && t.source !== 'revolut';
 const CATEGORY_SOURCES = ['mcc', 'rule', 'unclassified', 'income', 'manual'];
 
 export const round2 = n => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -38,7 +41,7 @@ export function validateTransaction(t) {
   return t !== null && typeof t === 'object'
     && typeof t.id === 'string' && t.id.length > 0 && t.id.length <= 128
     && typeof t.label === 'string' && t.label.trim().length > 0 && t.label.length <= 100
-    && Number.isFinite(t.amount) && t.amount > 0 && t.amount < MAX_AMOUNT
+    && Number.isFinite(t.amount) && round2(t.amount) > 0 && t.amount < MAX_AMOUNT
     && ['income', 'expense'].includes(t.type)
     && categoriesForType(t.type).includes(t.category)
     && isRealDate(t.date);
@@ -87,11 +90,13 @@ export function spentByCategory(entries) {
 
 /** Revenus et dépenses (hors virements) des `count` derniers mois, du plus ancien au mois affiché. */
 export function monthlySeries(transactions, month, count = 6) {
-  return Array.from({ length: count }, (_, i) => {
-    const m = shiftMonth(month, i - count + 1);
-    const { budgetIncome, budgetExpenses } = summary(transactions, m);
-    return { month: m, income: budgetIncome, expenses: budgetExpenses };
-  });
+  const months = Array.from({ length: count }, (_, i) => shiftMonth(month, i - count + 1));
+  const cents = new Map(months.map(m => [m, { income: 0, expenses: 0 }]));
+  for (const t of transactions) { // un seul passage, quel que soit le nombre de mois
+    const bucket = cents.get(t.date.slice(0, 7));
+    if (bucket && !isTransfer(t)) bucket[t.type === 'income' ? 'income' : 'expenses'] += toCents(t.amount);
+  }
+  return months.map(m => ({ month: m, income: cents.get(m).income / 100, expenses: cents.get(m).expenses / 100 }));
 }
 
 // ---------- Plafonds (par défaut, avec exceptions mensuelles) ----------
@@ -173,8 +178,8 @@ export function normalizeState(raw) {
   if (!raw || typeof raw !== 'object') return state;
   const seen = new Set();
   if (Array.isArray(raw.transactions)) {
-    for (const t of raw.transactions) {
-      if (validateTransaction(t) && !seen.has(t.id)) {
+    for (const t of raw.transactions.slice(0, MAX_TRANSACTIONS)) {
+      if (validateTransaction(t) && !seen.has(t.id) && !isFakeBankId(t)) {
         seen.add(t.id);
         state.transactions.push(cleanTransaction(t));
       }
