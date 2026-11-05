@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, scryptSync } from 'node:crypto';
+import { gunzipSync, gzipSync } from 'node:zlib';
 import { BankError } from './enable-banking.js';
 
 const TTL = 8 * 3600;
@@ -16,6 +17,15 @@ export class MemorySessionStore {
     this.data.set(id,{value:structuredClone(value),expires:Date.now()+TTL*1000});
   }
   async touch(id) { const item=this.data.get(id);if(item)item.expires=Date.now()+TTL*1000; }
+  // Coffre de sauvegarde des données du budget (en mémoire : perdu à l'arrêt du serveur, `durable` vaut false).
+  vault = null;
+  async getVault() { return this.vault ? structuredClone(this.vault) : null; }
+  async saveVault(expectedRevision, value, force = false) {
+    const revision = this.vault?.revision ?? 0;
+    if (!force && revision !== expectedRevision) return { ok: false, revision };
+    this.vault = { revision: revision + 1, value: structuredClone(value) };
+    return { ok: true, revision: revision + 1 };
+  }
   async acquire(id) {
     if ((this.locks.get(id)||0)>Date.now()) return null;
     this.locks.set(id,Date.now()+180000);
@@ -62,6 +72,26 @@ export class RedisSessionStore {
   async get(id){const value=await this.command(['GET',this.name('session',id)]);return value?this.decrypt(value):null;}
   async save(id,value){await this.command(['SET',this.name('session',id),this.encrypt(value),'EX',TTL]);}
   async touch(id){await this.command(['EXPIRE',this.name('session',id),TTL]);}
+  // Coffre de sauvegarde : sans expiration, compressé puis chiffré avec la même clé que les sessions.
+  // Deux clés : les données chiffrées et leur numéro de révision (non sensible), mis à jour ensemble de façon atomique.
+  vaultKeys(){return [this.prefix+'vault:data',this.prefix+'vault:rev'];}
+  async getVault(){
+    const [dataKey,revKey]=this.vaultKeys();
+    const [raw,revision]=await this.command(['MGET',dataKey,revKey]);
+    if(!raw)return null;
+    let value;
+    try{value=JSON.parse(gunzipSync(Buffer.from(this.decrypt(raw).gz,'base64')).toString('utf8'));}
+    catch{throw new BankError('La sauvegarde en ligne est illisible : le mot de passe applicatif a probablement changé. Vos données locales ne sont pas touchées.',422);}
+    return {revision:Number(revision)||0,value};
+  }
+  async saveVault(expectedRevision,value,force=false){
+    const encoded=this.encrypt({gz:gzipSync(Buffer.from(JSON.stringify(value))).toString('base64')});
+    if(Buffer.byteLength(encoded)>900000)throw new BankError('La sauvegarde est trop volumineuse pour le stockage en ligne.',413);
+    const [dataKey,revKey]=this.vaultKeys();
+    const script="local cur=tonumber(redis.call('GET',KEYS[2]) or '0'); if ARGV[1]=='force' or cur==tonumber(ARGV[2]) then local nxt=cur+1; redis.call('SET',KEYS[1],ARGV[3]); redis.call('SET',KEYS[2],nxt); return nxt else return -cur-1 end";
+    const result=Number(await this.command(['EVAL',script,2,dataKey,revKey,force?'force':'check',expectedRevision,encoded]));
+    return result>0?{ok:true,revision:result}:{ok:false,revision:-result-1};
+  }
   async acquire(id){
     const key=this.name('lock',id),token=randomBytes(24).toString('hex');
     const result=await this.command(['SET',key,token,'NX','PX',180000]);

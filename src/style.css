@@ -370,6 +370,13 @@ dialog form { display: grid; gap: 18px; padding: 24px; }
 .data-card h2 { font-size: 1.125rem; font-weight: 800; letter-spacing: -0.02em; }
 .data-card p { margin-top: 4px; color: var(--muted); font-size: 0.9375rem; }
 .data-card .btn, .data-card .field { align-self: end; justify-self: start; }
+.cloud-card { grid-column: 1 / -1; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 20px; }
+.cloud-card .stat-icon { align-self: start; }
+.cloud-card .card-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.cloud-status { margin-top: 10px !important; color: var(--ink) !important; font-weight: 600; }
+.cloud-warning { display: flex; align-items: flex-start; gap: 8px; margin-top: 8px; color: var(--warn-ink); font-size: 0.875rem; }
+.cloud-warning .icon { margin-top: 2px; }
+@media (max-width: 640px) { .cloud-card { grid-template-columns: 1fr; } .cloud-card .card-actions { justify-content: flex-start; } }
 
 /* ---------- Adaptation ---------- */
 

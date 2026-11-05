@@ -14,7 +14,7 @@
   <h1>Politique de confidentialité</h1>
   <p class="updated">Version du <time datetime="2026-11-05">5 novembre 2026</time></p>
   <nav aria-label="Informations légales"><a href="./privacy.html" aria-current="page">Confidentialité</a><a href="./terms.html">Conditions d’utilisation</a></nav>
-  <p class="intro">Mon Budget est une application personnelle de suivi budgétaire. Votre historique budgétaire est conservé dans votre navigateur ; les sessions de connexion et leur cache bancaire sont traités côté serveur. Une connexion bancaire facultative permet, lorsqu’elle est configurée et autorisée, de lire les opérations Revolut via Enable Banking.</p>
+  <p class="intro">Mon Budget est une application personnelle de suivi budgétaire. Votre historique budgétaire est conservé dans votre navigateur et, lorsque le serveur est configuré, dans une sauvegarde en ligne chiffrée protégée par votre mot de passe ; les sessions de connexion et leur cache bancaire sont traités côté serveur. Une connexion bancaire facultative permet, lorsqu’elle est configurée et autorisée, de lire les opérations Revolut via Enable Banking.</p>
   <article class="card">
     <h2>1. Éditeur et contact</h2>
     <p>Mon Budget est développé par Rodrigue Emmanuel TOMBE, à contacter à l’adresse <a href="mailto:manuelrt1203@gmail.com">manuelrt1203@gmail.com</a> pour toute question relative à l’application ou aux données.</p>
@@ -36,7 +36,8 @@
 
     <h2>4. Stockage et durée de conservation</h2>
     <ul>
-      <li><strong>Sur votre appareil :</strong> les opérations et budgets restent dans le stockage local du navigateur, sans suppression automatique. Ils ne sont pas synchronisés entre appareils.</li>
+      <li><strong>Sur votre appareil :</strong> les opérations et budgets restent dans le stockage local du navigateur, sans suppression automatique. Effacer les données du site les supprime de l’appareil, mais pas de la sauvegarde en ligne décrite ci-dessous.</li>
+      <li><strong>Sauvegarde en ligne :</strong> lorsque le serveur dispose du mot de passe applicatif et de Redis, une copie de vos opérations (saisies et importées de Revolut) et de vos plafonds est conservée dans Redis, compressée puis chiffrée par l’application (AES-256-GCM, clé dérivée du mot de passe Mon Budget), sans durée d’expiration. Elle n’est lue ou remplacée qu’après déverrouillage de l’accès, se synchronise automatiquement entre vos navigateurs, et est supprimée ou remplacée par les actions « Tout effacer » et « Remplacer la sauvegarde en ligne » de la page Données. Un changement du mot de passe applicatif la rend illisible. Sans Redis (version locale), elle reste dans la mémoire du processus et disparaît à son arrêt. Les éventuelles sauvegardes techniques des hébergeurs relèvent de leurs politiques.</li>
       <li><strong>Côté serveur :</strong> sur Vercel, les sessions bancaires, la dernière réponse de synchronisation et un diagnostic borné des opérations non importées (libellé, date, montant, statut et motif) sont conservés dans Redis, chiffrées par l’application (AES-256-GCM), avec une durée de vie de huit heures renouvelée lors des requêtes autorisées. Le cache est réutilisable pendant une minute et remplacé lors de la synchronisation suivante. Sans Redis, la version locale utilise seulement la mémoire du processus : elle perd ses sessions au redémarrage. Les éventuelles sauvegardes et traces techniques des hébergeurs relèvent de leurs politiques.</li>
       <li><strong>Chez les prestataires :</strong> les durées de conservation d’Enable Banking et de Revolut sont définies par leurs politiques respectives. La suppression dans Mon Budget ne modifie pas leurs obligations propres de conservation.</li>
     </ul>
@@ -48,7 +49,7 @@
 
     <h2>6. Déconnexion, suppression et contrôle</h2>
     <p>Le bouton « Déconnecter » demande la révocation de la session chez Enable Banking. Une déconnexion réussie retire la connexion active de Mon Budget ; les opérations déjà importées restent dans votre navigateur. Si la demande échoue, l’application affiche une erreur. Vous pouvez également gérer ou révoquer les accès depuis les options proposées par Revolut ou le prestataire.</p>
-    <p>Pour supprimer les opérations et budgets de cet appareil, effacez les données du site dans les paramètres de votre navigateur. Déconnectez d’abord la banque si vous souhaitez aussi révoquer la session distante : effacer seulement les données du navigateur ne garantit pas cette révocation.</p>
+    <p>Pour supprimer les opérations et budgets de cet appareil, effacez les données du site dans les paramètres de votre navigateur. Déconnectez d’abord la banque si vous souhaitez aussi révoquer la session distante : effacer seulement les données du navigateur ne garantit pas cette révocation. De même, la sauvegarde en ligne n’est pas supprimée par l’effacement des données du navigateur : utilisez « Tout effacer » dans la page Données, accès déverrouillé, pour la supprimer aussi.</p>
     <p>La connexion bancaire et le stockage sont utilisés à votre demande pour le suivi de votre budget personnel. Si vous avez une question ou souhaitez exercer les droits applicables d’accès, de rectification, de suppression, de limitation ou de portabilité, contactez l’éditeur. Les données conservées uniquement sur votre appareil ne sont pas consultables à distance par l’éditeur. Vous pouvez saisir l’autorité de protection des données compétente, notamment la <a href="https://www.cnil.fr/">CNIL</a> en France.</p>
 
     <h2>7. Protection des données et évolutions</h2>

@@ -57,7 +57,7 @@ export function mountBank({ target, onSync }) {
     event.preventDefault(); if (busy) return;
     const password = $('#bank-password').value;
     $('#bank-password').value = ''; busy = true; display();
-    try { await api('login',{password}); await loadStatus(); feedback('Accès bancaire déverrouillé.'); }
+    try { await api('login',{password}); await loadStatus(); feedback('Accès bancaire déverrouillé.'); window.dispatchEvent(new Event('bank:unlocked')); }
     catch(error) { feedback(error.message); }
     finally { busy = false; display(); }
     if (status.connected) await sync();

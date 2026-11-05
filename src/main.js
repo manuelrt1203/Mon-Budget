@@ -8,6 +8,7 @@ import {
   netOf, reviewCount, emptyState, serializeBackup, parseBackup, mergeStates, transactionsToCsv, parseAmount,
 } from './budget.js';
 import { loadState, saveState } from './storage.js';
+import { createCloud } from './cloud.js';
 import { icon, categoryIcon } from './icons.js';
 
 // ---------- Utilitaires ----------
@@ -43,7 +44,35 @@ const ui = { query: '', type: 'all', category: 'all', sort: 'date-desc', allMont
 function persist() {
   storageFailed = !saveState(state);
   renderNotice();
+  cloud.markDirty(); // la copie en ligne suit chaque enregistrement (envoi différé de quelques secondes)
   return !storageFailed;
+}
+
+// ---------- Sauvegarde en ligne ----------
+
+const cloud = createCloud({ getState: () => state, applyState, onChange: onCloudChange });
+
+/** Applique des données venues de la sauvegarde en ligne (restauration ou fusion) sans les renvoyer aussitôt. */
+function applyState(next, { reason }) {
+  state = next;
+  storageFailed = !saveState(state);
+  unreadable = false;
+  droppedAtLoad = 0;
+  render();
+  toast(reason === 'restore'
+    ? `Données restaurées depuis la sauvegarde en ligne (${plural(next.transactions.length, 'opération')}).`
+    : 'Données fusionnées avec la sauvegarde en ligne.');
+}
+
+let lockedShown = false;
+function onCloudChange(status) {
+  const card = document.querySelector('#cloud-card');
+  if (card) card.innerHTML = cloudCardBody();
+  const online = status.phase === 'idle' && status.durable;
+  document.querySelectorAll('.privacy span').forEach(el => { el.textContent = online ? 'Sauvegardé sur cet appareil et en ligne' : 'Historique sauvegardé sur cet appareil'; });
+  renderNotice();
+  // Le bandeau « verrouillé » de la vue d'ensemble apparaît ou disparaît quand l'accès change.
+  if ((status.phase === 'locked') !== lockedShown) { lockedShown = status.phase === 'locked'; if (routeName() === '') render(); }
 }
 
 // ---------- Thème ----------
@@ -281,6 +310,7 @@ function dashboardView() {
   ${pageHeader('Votre argent, simplement', 'On fait le point ?', 'Un regard sur vos finances, un peu plus de sérénité.', addButton)}
   ${monthBar()}
   ${toReview ? `<p class="banner info">${icon('alert', 18)}<span>${plural(toReview, 'dépense')} à classer ce mois-ci. Les suggestions automatiques sont modifiables ; vos choix sont conservés.</span><button class="btn ghost small" data-action="show-review">Les classer</button></p>` : ''}
+  ${cloud.status.phase === 'locked' ? `<p class="banner info">${icon('shield', 18)}<span>Votre sauvegarde en ligne est protégée : déverrouillez l’accès avec votre mot de passe pour retrouver ou sauvegarder vos données.</span><a class="btn ghost small" href="#/banque">Déverrouiller</a></p>` : ''}
   <section class="stats" aria-label="Chiffres du mois">
     ${statCard({ label: 'Variation du mois', value: money(s.balance), note: `Toutes les entrées et sorties, virements inclus<br>Cumul des mois précédents : ${signed(s.carryOver)}`, tone: 'primary', ic: 'wallet' })}
     ${statCard({ label: 'Revenus hors virements', value: money(s.budgetIncome), note: 'Ce qui est entré ce mois-ci', tone: 'income', ic: 'arrow-down-left' })}
@@ -377,6 +407,28 @@ function bankView() {
   <div id="bank-slot"></div>`;
 }
 
+function cloudCardBody() {
+  const s = cloud.status;
+  const when = s.lastSync ? new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'short' }).format(s.lastSync) : '';
+  const text = {
+    off: 'Vérification de la connexion au serveur…',
+    syncing: 'Synchronisation en cours…',
+    idle: `Dernière sauvegarde : ${when}.`,
+    locked: 'Accès verrouillé. Déverrouillez-le dans la page Banque : vos données restent enregistrées sur cet appareil en attendant.',
+  }[s.phase] ?? escape(s.message);
+  const warning = s.phase === 'idle' && s.durable === false
+    ? `<p class="cloud-warning">${icon('alert', 16)}<span>Ce serveur (mode local) garde la sauvegarde en mémoire seulement : elle sera perdue à son arrêt.</span></p>` : '';
+  const unreadable = s.phase === 'error' && /illisible/.test(s.message);
+  const buttons = s.phase === 'locked'
+    ? '<a class="btn primary" href="#/banque">Déverrouiller</a>'
+    : `<button class="btn ghost" data-action="cloud-sync"${s.phase === 'syncing' ? ' disabled' : ''}>${icon('refresh', 18)}<span>Synchroniser maintenant</span></button>${unreadable ? `<button class="btn danger" data-action="cloud-replace">${icon('upload', 18)}<span>Remplacer la sauvegarde en ligne</span></button>` : ''}`;
+  return `<span class="stat-icon">${icon('shield', 22)}</span>
+    <div><h2>Sauvegarde en ligne</h2>
+    <p>Une copie chiffrée de vos opérations et plafonds est conservée sur le serveur, protégée par votre mot de passe. Elle survit à l’effacement des données du navigateur : après un effacement, déverrouillez l’accès et vos mois reviennent.</p>
+    <p class="cloud-status" role="status">${text}</p>${warning}</div>
+    <div class="card-actions">${buttons}</div>`;
+}
+
 function dataView() {
   const count = state.transactions.length;
   const banked = state.transactions.filter(isBank).length;
@@ -386,6 +438,7 @@ function dataView() {
   ${pageHeader('Vos données vous appartiennent', 'Mes données', 'Tout est enregistré dans ce navigateur. Exportez régulièrement pour ne rien perdre.')}
   <p class="banner info">${icon('shield', 18)}<span>${plural(count, 'opération')} enregistrée${count > 1 ? 's' : ''} sur cet appareil${banked ? `, dont ${banked} synchronisée${banked > 1 ? 's' : ''} depuis Revolut` : ''}. Effacer les données du navigateur les supprimerait aussi.</span></p>
   <div class="data-grid">
+    <article class="panel data-card cloud-card" id="cloud-card">${cloudCardBody()}</article>
     ${card('download', 'Sauvegarde complète', 'Un fichier JSON avec vos opérations (Revolut comprises) et tous vos plafonds. Il contient des données financières : rangez-le dans un endroit sûr.', `<button class="btn primary" data-action="export-json">${icon('download', 18)}<span>Exporter en JSON</span></button>`)}
     ${card('download', 'Tableur', 'Vos opérations au format CSV, lisible dans Excel, LibreOffice ou Google Sheets.', `<button class="btn ghost" data-action="export-csv"${count ? '' : ' disabled'}>${icon('download', 18)}<span>Exporter en CSV</span></button>`)}
     ${card('upload', 'Importer une sauvegarde', 'Fusionnez avec vos données actuelles ou remplacez-les, au choix, avant toute modification.', `<button class="btn ghost" data-action="import">${icon('upload', 18)}<span>Choisir un fichier</span></button>`)}
@@ -412,6 +465,7 @@ function renderNotice() {
   const messages = [];
   if (droppedAtLoad) messages.push(`Des données enregistrées étaient invalides : ${plural(droppedAtLoad, 'opération')} ${droppedAtLoad > 1 ? 'ont été écartées' : 'a été écartée'}. Une copie brute des données d’origine est conservée sur cet appareil.`);
   if (unreadable) messages.push('Vos données enregistrées étaient illisibles. Une copie brute est conservée sur cet appareil et vous repartez d’un budget vide : importez une sauvegarde si vous en avez une.');
+  if (cloud.status.phase === 'error') messages.push(`Sauvegarde en ligne : ${escape(cloud.status.message)} Vos données restent enregistrées sur cet appareil.`);
   if (storageFailed) messages.push('La sauvegarde locale est indisponible : vos changements seront perdus à la fermeture. Pensez à exporter vos données.');
   $('#notice').innerHTML = messages.map(m => `<p class="banner warn">${icon('alert', 18)}<span>${m}</span></p>`).join('');
 }
@@ -633,17 +687,19 @@ async function importFile(file) {
   droppedAtLoad = 0;
   persist();
   render();
+  if (choice === 'replace') cloud.markDirty({ replace: true }); // « remplacer » vaut aussi pour la sauvegarde en ligne
   toast(choice === 'merge' ? 'Sauvegarde fusionnée.' : 'Sauvegarde restaurée.');
 }
 
 async function resetAll() {
-  const ok = await confirmAction({ title: 'Tout effacer ?', message: 'Vos opérations (saisies et Revolut) et vos plafonds personnalisés seront supprimés de cet appareil. Cette action est définitive : pensez à exporter d’abord.', label: 'Effacer mes données', danger: true });
+  const ok = await confirmAction({ title: 'Tout effacer ?', message: 'Vos opérations (saisies et Revolut) et vos plafonds personnalisés seront supprimés de cet appareil. Si la sauvegarde en ligne est accessible, elle est effacée aussi ; sinon elle sera restaurée à la prochaine synchronisation. Cette action est définitive : pensez à exporter d’abord.', label: 'Effacer mes données', danger: true });
   if (!ok) return;
   state = emptyState();
   unreadable = false;
   droppedAtLoad = 0;
   persist();
   render();
+  cloud.markDirty({ replace: true });
   toast('Données effacées.');
 }
 
@@ -663,6 +719,11 @@ const actions = {
   'export-json': () => download(`mon-budget-${today()}.json`, serializeBackup(state), 'application/json'),
   'export-csv': () => download(`mon-budget-${today()}.csv`, `﻿${transactionsToCsv(state.transactions)}`, 'text/csv;charset=utf-8'),
   import: () => $('#import-file').click(),
+  'cloud-sync': () => cloud.sync(),
+  'cloud-replace': async () => {
+    const ok = await confirmAction({ title: 'Remplacer la sauvegarde en ligne ?', message: 'La sauvegarde en ligne actuelle sera écrasée par les données de cet appareil. Utile si elle est illisible (par exemple après un changement de mot de passe). Cette action est définitive.', label: 'Remplacer', danger: true });
+    if (ok) cloud.markDirty({ replace: true });
+  },
   'reset-all': resetAll,
   'close-dialog': el => el.closest('dialog').close(),
 };
@@ -730,6 +791,12 @@ mountBank({
     return result;
   },
 });
+
+// Sauvegarde en ligne : première synchronisation, puis à chaque déverrouillage et au retour sur l'onglet.
+cloud.sync();
+window.addEventListener('bank:unlocked', () => cloud.sync());
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') cloud.refreshIfStale(); });
+navigator.storage?.persist?.().catch(() => {}); // demande au navigateur de ne pas évacuer les données locales en cas de manque de place
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {}));
