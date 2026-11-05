@@ -1,1 +1,23 @@
-<!doctype html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="theme-color" content="#19594d"><title>Mon Budget — mon argent, simplement</title></head><body><div id="app"></div><script type="module" src="/src/main.js"></script></body></html>
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f5f3ec" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0e1a17" media="(prefers-color-scheme: dark)" />
+    <meta name="description" content="Mon Budget : suivez revenus, dépenses et plafonds mensuels, avec une connexion bancaire en lecture seule." />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <title>Mon Budget — mon argent, simplement</title>
+    <script>
+      // Applique le thème choisi avant le premier affichage (évite un flash clair).
+      try { var t = localStorage.getItem('mon-budget-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <noscript>Mon Budget a besoin de JavaScript pour fonctionner.</noscript>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

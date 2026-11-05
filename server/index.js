@@ -3,7 +3,7 @@ import { resolve, extname } from 'node:path';
 import { createBankServer } from './app.js';
 import { configuration } from './config.js';
 const root = resolve('dist');
-const types = { '.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.ico':'image/x-icon' };
+const types = { '.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.ico':'image/x-icon','.webmanifest':'application/manifest+json' };
 const server = createBankServer({ ...configuration(), frontend:async(req,res)=>{
   if (!['GET','HEAD'].includes(req.method)) { res.writeHead(405); return res.end(); }
   let path;

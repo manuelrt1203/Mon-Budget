@@ -1,6 +1,8 @@
 # Mon Budget
 
-Application web en français pour gérer son budget étudiant : revenus, dépenses, catégories, plafonds mensuels et solde. Les opérations sont conservées dans le stockage local du navigateur. Les plafonds sont communs à tous les mois ; le résultat du mois est le revenu moins les dépenses du mois, sans report. Le solde du compte est lu séparément auprès de Revolut.
+Application web en français pour gérer son budget étudiant : revenus, dépenses, catégories, plafonds mensuels et solde. Les opérations sont conservées dans le stockage local du navigateur. Les plafonds ont des valeurs par défaut, modifiables mois par mois ; la « variation du mois » est le revenu moins les dépenses du mois (virements inclus) et le cumul des mois précédents est affiché en dessous. Le solde du compte est lu séparément auprès de Revolut.
+
+Pages : vue d’ensemble, opérations (recherche, filtres, tri, modification des saisies manuelles, reclassement des opérations Revolut), budgets, banque et données (export JSON/CSV, import avec fusion ou remplacement, thème clair/sombre). Une suppression peut être annulée pendant quelques secondes. L’application est installable (PWA) : le service worker ne met en cache que des fichiers statiques et n’intercepte jamais `/api/`.
 
 ## Développement
 
