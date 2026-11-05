@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Confidentialité de Mon Budget : données budgétaires locales et connexion bancaire en lecture seule via Enable Banking.">
+  <title>Confidentialité — Mon Budget</title>
+  <link rel="stylesheet" href="./legal.css">
+</head>
+<body>
+<main>
+  <a class="brand" href="https://github.com/manuelrt1203/Mon-Budget">mon budget</a>
+  <p class="eyebrow">Vos données</p>
+  <h1>Politique de confidentialité</h1>
+  <p class="updated">Version du <time datetime="2026-11-05">5 novembre 2026</time></p>
+  <nav aria-label="Informations légales"><a href="./privacy.html" aria-current="page">Confidentialité</a><a href="./terms.html">Conditions d’utilisation</a></nav>
+  <p class="intro">Mon Budget est une application personnelle de suivi budgétaire. Les opérations sont conservées dans votre navigateur. Une connexion bancaire facultative permet, lorsqu’elle est configurée et autorisée, de lire les opérations Revolut via Enable Banking.</p>
+  <article class="card">
+    <h2>1. Éditeur et contact</h2>
+    <p>Mon Budget est développé par Rodrigue Emmanuel TOMBE, à contacter à l’adresse <a href="mailto:manuelrt1203@gmail.com">manuelrt1203@gmail.com</a> pour toute question relative à l’application ou aux données.</p>
+    <p>Cette politique décrit la version actuelle pour un usage personnel. La mise en ligne de ces pages d’information ne signifie pas que l’application bancaire est un service public hébergé, ni qu’une connexion à votre banque est déjà active.</p>
+
+    <h2>2. Données utilisées et finalités</h2>
+    <ul>
+      <li><strong>Saisie manuelle :</strong> libellés, montants, dates, catégories, revenus, dépenses et plafonds budgétaires. Ils servent à afficher et calculer votre budget.</li>
+      <li><strong>Connexion bancaire facultative :</strong> informations des comptes autorisés et opérations, notamment références de compte, identifiants d’opérations, libellés, montants, devises, dates et statut. Elles servent à synchroniser votre historique et à limiter les doublons.</li>
+      <li><strong>Fonctionnement de la connexion :</strong> état d’autorisation temporaire, code de retour bancaire, identifiant de session du prestataire, échéance du consentement et date de dernière synchronisation. Ils servent à sécuriser et maintenir la connexion.</li>
+      <li><strong>Informations techniques :</strong> le serveur et le prestataire peuvent traiter l’adresse IP, le type de navigateur et les informations nécessaires au fonctionnement des requêtes. Les opérateurs des services utilisés peuvent conserver leurs propres journaux techniques selon leurs règles.</li>
+    </ul>
+    <p>L’application ne demande pas votre mot de passe Revolut et ne dispose d’aucune fonction de paiement. Elle ne comporte ni publicité ni outil de mesure d’audience. L’éditeur ne revend ni ne loue vos données.</p>
+
+    <h2>3. Autorisation bancaire et prestataires</h2>
+    <p>La connexion est facultative. Elle ne commence qu’après votre autorisation dans le parcours bancaire proposé via <a href="https://enablebanking.com/">Enable Banking Oy</a>. Le prestataire et Revolut traitent les informations nécessaires à ce parcours selon leurs propres conditions et politiques de confidentialité.</p>
+    <p>Cette autorisation permet à Mon Budget d’obtenir les informations des comptes que vous avez autorisés. Elle ne permet pas à Mon Budget d’effectuer des paiements. L’accès réel dépend de la configuration et de l’approbation de l’application chez le prestataire, de la disponibilité de Revolut France et de votre consentement.</p>
+    <p>Les données bancaires passent par Enable Banking et par le serveur sur lequel vous exécutez Mon Budget. Dans la configuration locale, ce serveur fonctionne sur votre ordinateur. Si vous hébergez vous-même l’application, son hébergeur intervient également dans le traitement. La localisation et les transferts éventuels des traitements des prestataires relèvent de leurs informations contractuelles ; aucune localisation exclusivement française n’est garantie ici.</p>
+
+    <h2>4. Stockage et durée de conservation</h2>
+    <ul>
+      <li><strong>Sur votre appareil :</strong> les opérations et budgets restent dans le stockage local du navigateur, sans suppression automatique. Ils ne sont pas synchronisés entre appareils.</li>
+      <li><strong>Sur le serveur applicatif :</strong> les sessions bancaires et la dernière réponse de synchronisation sont conservées en mémoire, sans base de données bancaire persistante. Une session est supprimée lors du redémarrage du serveur ou lors du nettoyage après huit heures sans requête de ce navigateur. La réponse de synchronisation est réutilisable pendant une minute et remplacée lors de l’actualisation suivante.</li>
+      <li><strong>Chez les prestataires :</strong> les durées de conservation d’Enable Banking et de Revolut sont définies par leurs politiques respectives. La suppression dans Mon Budget ne modifie pas leurs obligations propres de conservation.</li>
+    </ul>
+    <p>Le consentement est demandé pour dix jours au maximum, dans la limite admise par la banque. Il peut expirer ou être révoqué plus tôt. L’expiration de l’accès n’efface pas les opérations déjà enregistrées dans votre navigateur.</p>
+
+    <h2>5. Cookie et stockage local</h2>
+    <p>Mon Budget utilise le stockage local du navigateur pour les données budgétaires, sous la clé <code>mon-budget-v1</code>. La connexion bancaire utilise un cookie de session essentiel nommé <code>mb_bank</code>, qui relie ce navigateur à sa session serveur. Ce cookie n’est pas accessible au JavaScript de la page ; il est marqué <code>Secure</code> lorsque l’application est utilisée en HTTPS. Sa conservation lors de la fermeture dépend aussi des réglages de restauration du navigateur.</p>
+    <p>Aucun cookie publicitaire ou de suivi d’audience n’est installé par l’application. Le navigateur et les prestataires peuvent appliquer leurs propres mécanismes lors du parcours d’autorisation externe.</p>
+
+    <h2>6. Déconnexion, suppression et contrôle</h2>
+    <p>Le bouton « Déconnecter » demande la révocation de la session chez Enable Banking. Une déconnexion réussie retire la connexion active de Mon Budget ; les opérations déjà importées restent dans votre navigateur. Si la demande échoue, l’application affiche une erreur. Vous pouvez également gérer ou révoquer les accès depuis les options proposées par Revolut ou le prestataire.</p>
+    <p>Pour supprimer les opérations et budgets de cet appareil, effacez les données du site dans les paramètres de votre navigateur. Déconnectez d’abord la banque si vous souhaitez aussi révoquer la session distante : effacer seulement les données du navigateur ne garantit pas cette révocation.</p>
+    <p>La connexion bancaire et le stockage sont utilisés à votre demande pour le suivi de votre budget personnel. Si vous avez une question ou souhaitez exercer les droits applicables d’accès, de rectification, de suppression, de limitation ou de portabilité, contactez l’éditeur. Les données conservées uniquement sur votre appareil ne sont pas consultables à distance par l’éditeur. Vous pouvez saisir l’autorité de protection des données compétente, notamment la <a href="https://www.cnil.fr/">CNIL</a> en France.</p>
+
+    <h2>7. Protection des données et évolutions</h2>
+    <p>La clé privée du prestataire reste côté serveur et ne doit jamais être intégrée au code envoyé au navigateur, au dépôt public ou aux relevés partagés. Les appels bancaires utilisent HTTPS. Les requêtes de modification de connexion sont limitées à l’origine configurée de l’application et l’état d’autorisation est temporaire et à usage unique.</p>
+    <p>Protégez votre appareil, votre navigateur et le serveur utilisé. Cette version ne propose pas de comptes utilisateurs ou de protection applicative par mot de passe. Un déploiement public de l’application exige une configuration de sécurité et des informations sur l’hébergement adaptées.</p>
+    <p>Cette politique sera mise à jour si les fonctionnalités ou les traitements évoluent. La date de version figure en haut de la page.</p>
+  </article>
+  <footer><a href="./terms.html">Conditions d’utilisation</a> · <a href="https://github.com/manuelrt1203/Mon-Budget">Code source de Mon Budget</a></footer>
+</main>
+</body>
+</html>
