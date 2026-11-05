@@ -7,5 +7,5 @@ export function summary(transactions, month) {
   return { entries, income, expenses, balance: income-expenses };
 }
 export function validateTransaction(t) {
-  return typeof t.id === 'string' && typeof t.label === 'string' && t.label.trim().length > 0 && t.label.length <= 100 && Number.isFinite(t.amount) && t.amount > 0 && ['income','expense'].includes(t.type) && categories.includes(t.category) && /^\d{4}-\d{2}-\d{2}$/.test(t.date) && !Number.isNaN(Date.parse(t.date));
+  return t !== null && typeof t === 'object' && typeof t.id === 'string' && typeof t.label === 'string' && t.label.trim().length > 0 && t.label.length <= 100 && Number.isFinite(t.amount) && t.amount > 0 && ['income','expense'].includes(t.type) && categories.includes(t.category) && /^\d{4}-\d{2}-\d{2}$/.test(t.date) && !Number.isNaN(Date.parse(t.date)) && new Date(t.date).toISOString().slice(0,10) === t.date;
 }

@@ -14,11 +14,11 @@
   <h1>Politique de confidentialité</h1>
   <p class="updated">Version du <time datetime="2026-11-05">5 novembre 2026</time></p>
   <nav aria-label="Informations légales"><a href="./privacy.html" aria-current="page">Confidentialité</a><a href="./terms.html">Conditions d’utilisation</a></nav>
-  <p class="intro">Mon Budget est une application personnelle de suivi budgétaire. Les opérations sont conservées dans votre navigateur. Une connexion bancaire facultative permet, lorsqu’elle est configurée et autorisée, de lire les opérations Revolut via Enable Banking.</p>
+  <p class="intro">Mon Budget est une application personnelle de suivi budgétaire. Votre historique budgétaire est conservé dans votre navigateur ; les sessions de connexion et leur cache bancaire sont traités côté serveur. Une connexion bancaire facultative permet, lorsqu’elle est configurée et autorisée, de lire les opérations Revolut via Enable Banking.</p>
   <article class="card">
     <h2>1. Éditeur et contact</h2>
     <p>Mon Budget est développé par Rodrigue Emmanuel TOMBE, à contacter à l’adresse <a href="mailto:manuelrt1203@gmail.com">manuelrt1203@gmail.com</a> pour toute question relative à l’application ou aux données.</p>
-    <p>Cette politique décrit la version actuelle pour un usage personnel. La mise en ligne de ces pages d’information ne signifie pas que l’application bancaire est un service public hébergé, ni qu’une connexion à votre banque est déjà active.</p>
+    <p>Cette politique décrit la version actuelle pour un usage personnel. L’accès à la connexion bancaire est réservé à l’usage personnel de l’éditeur. La présence du site en ligne ne signifie pas que cette connexion est active : sa configuration et une autorisation bancaire restent nécessaires.</p>
 
     <h2>2. Données utilisées et finalités</h2>
     <ul>
@@ -32,19 +32,19 @@
     <h2>3. Autorisation bancaire et prestataires</h2>
     <p>La connexion est facultative. Elle ne commence qu’après votre autorisation dans le parcours bancaire proposé via <a href="https://enablebanking.com/">Enable Banking Oy</a>. Le prestataire et Revolut traitent les informations nécessaires à ce parcours selon leurs propres conditions et politiques de confidentialité.</p>
     <p>Cette autorisation permet à Mon Budget d’obtenir les informations des comptes que vous avez autorisés. Elle ne permet pas à Mon Budget d’effectuer des paiements. L’accès réel dépend de la configuration et de l’approbation de l’application chez le prestataire, de la disponibilité de Revolut France et de votre consentement.</p>
-    <p>Les données bancaires passent par Enable Banking et par le serveur sur lequel vous exécutez Mon Budget. Dans la configuration locale, ce serveur fonctionne sur votre ordinateur. Si vous hébergez vous-même l’application, son hébergeur intervient également dans le traitement. La localisation et les transferts éventuels des traitements des prestataires relèvent de leurs informations contractuelles ; aucune localisation exclusivement française n’est garantie ici.</p>
+    <p>Les données bancaires passent par Enable Banking et par le serveur sur lequel vous exécutez Mon Budget. Dans la configuration locale, ce serveur fonctionne sur votre ordinateur. Le déploiement Vercel utilise les fonctions serveur de <a href="https://vercel.com/">Vercel</a> et un stockage Redis de <a href="https://upstash.com/">Upstash</a>. Ces hébergeurs interviennent dans le traitement des données de connexion et de leur cache. La localisation et les transferts éventuels des traitements des prestataires relèvent de leurs informations contractuelles ; aucune localisation exclusivement française n’est garantie ici.</p>
 
     <h2>4. Stockage et durée de conservation</h2>
     <ul>
       <li><strong>Sur votre appareil :</strong> les opérations et budgets restent dans le stockage local du navigateur, sans suppression automatique. Ils ne sont pas synchronisés entre appareils.</li>
-      <li><strong>Sur le serveur applicatif :</strong> les sessions bancaires et la dernière réponse de synchronisation sont conservées en mémoire, sans base de données bancaire persistante. Une session est supprimée lors du redémarrage du serveur ou lors du nettoyage après huit heures sans requête de ce navigateur. La réponse de synchronisation est réutilisable pendant une minute et remplacée lors de l’actualisation suivante.</li>
+      <li><strong>Côté serveur :</strong> sur Vercel, les sessions bancaires et la dernière réponse de synchronisation sont conservées dans Redis, chiffrées par l’application (AES-256-GCM), avec une durée de vie de huit heures renouvelée lors des requêtes autorisées. Le cache est réutilisable pendant une minute et remplacé lors de la synchronisation suivante. Sans Redis, la version locale utilise seulement la mémoire du processus : elle perd ses sessions au redémarrage. Les éventuelles sauvegardes et traces techniques des hébergeurs relèvent de leurs politiques.</li>
       <li><strong>Chez les prestataires :</strong> les durées de conservation d’Enable Banking et de Revolut sont définies par leurs politiques respectives. La suppression dans Mon Budget ne modifie pas leurs obligations propres de conservation.</li>
     </ul>
     <p>Le consentement est demandé pour dix jours au maximum, dans la limite admise par la banque. Il peut expirer ou être révoqué plus tôt. L’expiration de l’accès n’efface pas les opérations déjà enregistrées dans votre navigateur.</p>
 
     <h2>5. Cookie et stockage local</h2>
     <p>Mon Budget utilise le stockage local du navigateur pour les données budgétaires, sous la clé <code>mon-budget-v1</code>. La connexion bancaire utilise un cookie de session essentiel nommé <code>mb_bank</code>, qui relie ce navigateur à sa session serveur. Ce cookie n’est pas accessible au JavaScript de la page ; il est marqué <code>Secure</code> lorsque l’application est utilisée en HTTPS. Sa conservation lors de la fermeture dépend aussi des réglages de restauration du navigateur.</p>
-    <p>Aucun cookie publicitaire ou de suivi d’audience n’est installé par l’application. Le navigateur et les prestataires peuvent appliquer leurs propres mécanismes lors du parcours d’autorisation externe.</p>
+    <p>Un second cookie HttpOnly, <code>mb_access</code>, déverrouille les fonctions bancaires après saisie du mot de passe Mon Budget pour huit heures au maximum. Il devient également <code>Secure</code> en HTTPS. Ce mot de passe applicatif, distinct du mot de passe bancaire, est vérifié par le serveur et n’est pas enregistré dans le stockage local. Les tentatives de déverrouillage sont limitées ; des compteurs techniques à courte durée de vie peuvent être stockés dans Redis sous des identifiants dérivés de l’adresse IP. Aucun cookie publicitaire ou de suivi d’audience n’est installé par l’application. Le navigateur et les prestataires peuvent appliquer leurs propres mécanismes lors du parcours d’autorisation externe.</p>
 
     <h2>6. Déconnexion, suppression et contrôle</h2>
     <p>Le bouton « Déconnecter » demande la révocation de la session chez Enable Banking. Une déconnexion réussie retire la connexion active de Mon Budget ; les opérations déjà importées restent dans votre navigateur. Si la demande échoue, l’application affiche une erreur. Vous pouvez également gérer ou révoquer les accès depuis les options proposées par Revolut ou le prestataire.</p>
@@ -53,7 +53,7 @@
 
     <h2>7. Protection des données et évolutions</h2>
     <p>La clé privée du prestataire reste côté serveur et ne doit jamais être intégrée au code envoyé au navigateur, au dépôt public ou aux relevés partagés. Les appels bancaires utilisent HTTPS. Les requêtes de modification de connexion sont limitées à l’origine configurée de l’application et l’état d’autorisation est temporaire et à usage unique.</p>
-    <p>Protégez votre appareil, votre navigateur et le serveur utilisé. Cette version ne propose pas de comptes utilisateurs ou de protection applicative par mot de passe. Un déploiement public de l’application exige une configuration de sécurité et des informations sur l’hébergement adaptées.</p>
+    <p>Protégez votre appareil, votre navigateur et le serveur utilisé. Cette version ne propose pas de comptes utilisateurs : les fonctions bancaires de l’espace personnel hébergé sont protégées par un mot de passe Mon Budget et exigent un stockage de sessions chiffré. Le bouton « Verrouiller l’accès » retire le cookie de déverrouillage de ce navigateur sans révoquer le consentement bancaire. La partie budgétaire reste locale et les données affichées sont accessibles à toute personne utilisant le même profil de navigateur ; protégez votre appareil. Un changement de mot de passe invalide les accès existants et impose de recréer les sessions chiffrées avec l’ancien mot de passe.</p>
     <p>Cette politique sera mise à jour si les fonctionnalités ou les traitements évoluent. La date de version figure en haut de la page.</p>
   </article>
   <footer><a href="./terms.html">Conditions d’utilisation</a> · <a href="https://github.com/manuelrt1203/Mon-Budget">Code source de Mon Budget</a></footer>
