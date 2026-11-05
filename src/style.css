@@ -398,6 +398,7 @@ dialog form { display: grid; gap: 18px; padding: 24px; }
   .field-row { grid-template-columns: 1fr; }
   .toolbar { padding: 14px; }
   .toolbar .field:not(.grow) { flex: 1 1 calc(50% - 8px); }
+  .toolbar .field:has(#flt-type) { flex-basis: 100%; } /* « Toutes les opérations » ne doit pas être tronqué */
   .op, .op-list.compact .op { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: 'icon main amount' '. cat actions'; }
   .op > .cat-icon { grid-area: icon; }
   .op-main { grid-area: main; }

@@ -37,7 +37,7 @@ let state = loaded.state;
 let unreadable = loaded.error === 'unreadable';
 let storageFailed = false;
 let month = currentMonth();
-const ui = { q: '', type: 'all', category: 'all', sort: 'date-desc', allMonths: false, limit: 50 };
+const ui = { query: '', type: 'all', category: 'all', sort: 'date-desc', allMonths: false, limit: 50 };
 
 function persist() {
   storageFailed = !saveState(state);
@@ -322,7 +322,7 @@ function operationsView() {
   ${pageHeader('Tout ce qui bouge', 'Mes opérations', 'Cherchez, filtrez, corrigez : vos saisies sont modifiables, les opérations Revolut se reclassent d’un clic.', addButton)}
   ${ui.allMonths ? '' : monthBar()}
   <form class="toolbar" role="search" aria-label="Filtrer les opérations" onsubmit="return false">
-    <div class="field grow"><label for="flt-q">Rechercher</label><div class="search-box">${icon('search', 18)}<input id="flt-q" type="search" data-filter="q" value="${escape(ui.q)}" placeholder="Libellé…" autocomplete="off"></div></div>
+    <div class="field grow"><label for="flt-q">Rechercher</label><div class="search-box">${icon('search', 18)}<input id="flt-q" type="search" data-filter="query" value="${escape(ui.query)}" placeholder="Libellé…" autocomplete="off"></div></div>
     <div class="field"><label for="flt-type">Afficher</label><select id="flt-type" data-filter="type">${typeFilters.map(([v, l]) => `<option value="${v}" ${ui.type === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
     <div class="field"><label for="flt-cat">Catégorie</label><select id="flt-cat" data-filter="category"><option value="all">Toutes</option>${categories.map(c => `<option ${ui.category === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
     <div class="field"><label for="flt-sort">Trier par</label><select id="flt-sort" data-filter="sort">${sortOptions.map(([v, l]) => `<option value="${v}" ${ui.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
@@ -333,9 +333,9 @@ function operationsView() {
 
 function opResults() {
   const base = ui.allMonths ? state.transactions : summary(state.transactions, month).entries;
-  const list = filterTransactions(base, { ...ui, query: ui.q });
+  const list = filterTransactions(base, ui);
   if (!list.length) {
-    const filtered = ui.q || ui.type !== 'all' || ui.category !== 'all';
+    const filtered = ui.query || ui.type !== 'all' || ui.category !== 'all';
     return emptyBlock(filtered ? 'Aucune opération trouvée' : 'Rien pour ce mois',
       filtered ? 'Essayez d’autres mots ou retirez un filtre.' : 'Ajoutez une opération pour commencer.', filtered ? '' : addButton);
   }
@@ -648,7 +648,7 @@ const actions = {
   edit: el => openOperation(state.transactions.find(t => t.id === el.dataset.id)),
   delete: el => deleteOperation(el.dataset.id),
   more: () => { ui.limit += 50; $('#op-results').innerHTML = opResults(); },
-  'show-review': () => { Object.assign(ui, { type: 'review', category: 'all', q: '', allMonths: false }); location.hash = '#/operations'; },
+  'show-review': () => { Object.assign(ui, { type: 'review', category: 'all', query: '', allMonths: false }); location.hash = '#/operations'; },
   'prev-month': () => setMonth(shiftMonth(month, -1), '[data-action="prev-month"]'),
   'next-month': () => setMonth(shiftMonth(month, 1), '[data-action="next-month"]'),
   'this-month': () => setMonth(currentMonth(), '[data-action="prev-month"]'),
