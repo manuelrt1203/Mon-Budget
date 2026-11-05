@@ -33,7 +33,7 @@ function describeAccount(account,index){
   const iban=typeof account?.account_id?.iban==='string'?account.account_id.iban.replace(/\s/g,'').toUpperCase():'';
   const validIban=/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(iban);
   const identity=validIban?iban:typeof account?.identification_hash==='string'&&account.identification_hash?account.identification_hash:uid;
-  const type=typeof account?.account_type==='string'?account.account_type:null;
+  const type=typeof account?.cash_account_type==='string'?account.cash_account_type:typeof account?.account_type==='string'?account.account_type:null;
   const fallback=type==='CACC'?'Compte courant':type==='SVGS'?'Épargne':`Compte Revolut ${index+1}`;
   const name=typeof account?.name==='string'&&account.name.trim()?account.name.trim().slice(0,100):fallback;
   const currency=typeof account?.currency==='string'&&/^[A-Z]{3}$/.test(account.currency)?account.currency:null;

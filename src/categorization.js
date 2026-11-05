@@ -15,13 +15,20 @@ const rules=[
  ['Études',/\b(CROUS SCOLARITE|FRAIS DE SCOLARITE|DROITS UNIVERSITAIRES|UNIVERSITE|BUREAU VALLEE)\b/,'Libellé lié aux études'],
  ['Santé',/\b(PHARMACIE|PARAPHARMACIE|DOCTOLIB|LABORATOIRE MEDICAL)\b/,'Libellé lié aux soins'],
 ];
-export function categorize({label,type,mcc,merchant}){
+export function categorize({label,type,mcc,merchant,bankCode}){
  const merchantKey=normalizeMerchant(merchant||label);
+ const text=normalizeMerchant([merchant,label].filter(Boolean).join(' '));
+ const suggest=(category,reason)=>({category,categorySource:'rule',categoryReason:`Suggestion : ${reason}`,merchantKey});
+ if(type==='expense'&&/\b(?:TO|VERS) (?:MON |MY )?(?:COMPTE D EPARGNE|COMPTE EPARGNE|EPARGNE|SAVINGS(?: ACCOUNT)?)\b/.test(text))return suggest('Vers l’épargne','virement vers l’épargne indiqué par le libellé et confirmé comme débit.');
+ if(type==='income'&&/\b(?:FROM|DEPUIS) (?:MON |MY )?(?:COMPTE D EPARGNE|COMPTE EPARGNE|EPARGNE|SAVINGS(?: ACCOUNT)?)\b/.test(text))return suggest('Depuis l’épargne','virement depuis l’épargne indiqué par le libellé et confirmé comme crédit.');
+ const salary=/\b(SALAIRE|SALARY|PAYROLL)\b/.test(text);
+ const transferCode=/\b(ICDT|RCDT)\b/.test(normalizeMerchant(bankCode));
+ if(type==='income'&&!salary&&(transferCode||/\b(VIREMENT|PAYMENT FROM|TRANSFER FROM)\b|^FROM\b/.test(text)))return suggest('Virement entrant','virement reçu selon le code ou le libellé bancaire ; origine personnelle ou externe non déduite.');
  if(type==='income')return{category:'Autres',categorySource:'income',categoryReason:'Entrée d’argent ; catégorie de dépense non applicable.',merchantKey};
  const code=String(mcc||'').trim();
  for(const[category,codes]of Object.entries(mccCategories))if(codes.includes(code))return{category,categorySource:'mcc',categoryReason:`Code commerçant bancaire ${code}.`,merchantKey};
- const text=normalizeMerchant([merchant,label].filter(Boolean).join(' '));
  for(const[category,pattern,reason]of rules)if(pattern.test(text))return{category,categorySource:'rule',categoryReason:`Suggestion : ${reason.toLowerCase()}.`,merchantKey};
+ if(type==='expense'&&(transferCode||/\b(VIREMENT|PAYMENT TO|TRANSFER TO|ENVOYE DEPUIS REVOLUT)\b|^TO\b/.test(text)))return suggest('Virement sortant','virement envoyé selon le code ou le libellé bancaire ; bénéficiaire personnel ou externe non déduit.');
  return{category:'Autres',categorySource:'unclassified',categoryReason:'Informations insuffisantes pour proposer une catégorie fiable. À vérifier.',merchantKey};
 }
 export const needsCategoryReview=t=>t.source==='revolut'&&t.type==='expense'&&t.categorySource!=='manual'&&(t.categorySource==='unclassified'||(!t.categorySource&&t.category==='Autres'));

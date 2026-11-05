@@ -38,3 +38,8 @@ test('un format bancaire absent ne produit jamais de solde inventé',async()=>{
  assert.deepEqual(result.accounts[0].balances,[]);assert.match(result.accounts[0].error,/liste de soldes/);
  await assert.rejects(readAccountBalances({},[],{}),/Aucun compte/);
 });
+
+test('reconnaît un compte épargne transmis avec le type de compte cash ISO',async()=>{
+ const result=await readAccountBalances({request:async()=>({balances:[amount('123.45')]})},[{uid:'saving',cash_account_type:'SVGS',currency:'EUR'}],{});
+ assert.equal(result.accounts[0].type,'SVGS');assert.equal(result.accounts[0].name,'Épargne');assert.equal(result.accounts[0].balances[0].amount,123.45);
+});

@@ -66,8 +66,9 @@ export function normalizeTransactions(account,rows){
   const id=`bank-${createHash('sha256').update(JSON.stringify([account,String(ref)])).digest('hex')}`;
   const merchant=[row.merchant?.name,row.merchant_details?.name].find(s=>typeof s==='string'&&s.trim());
   const mcc=row.merchant_category_code??row.merchant?.merchant_category_code??row.merchant_details?.merchant_category_code;
+  const bankCode=typeof row.bank_transaction_code==='string'?row.bank_transaction_code:row.bank_transaction_code?.code;
   if(fallback)diagnostics.valueDateUsed++;
-  transactions.push({id,label,amount:Math.abs(cents)/100,date,type,...categorize({label,type,mcc,merchant}),dateSource:fallback?'value_date':'booking_date',source:'revolut'});
+  transactions.push({id,label,amount:Math.abs(cents)/100,date,type,...categorize({label,type,mcc,merchant,bankCode}),dateSource:fallback?'value_date':'booking_date',source:'revolut'});
  }
  return{transactions,skipped,diagnostics};
 }

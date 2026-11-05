@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { isIP } from 'node:net';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { BankError, readTransactions } from './enable-banking.js';
+import { BankError, readTransactions, transactionIdentity } from './enable-banking.js';
 import { readAccountBalances } from './balances.js';
 import { MemorySessionStore } from './session-store.js';
 import { checkAccess, issueAccess, passwordMatches } from './access.js';
@@ -103,13 +103,21 @@ export function createBankHandler({provider,origin,frontend=(_req,res)=>{res.wri
         delete session.bank;delete session.pending;delete session.cached;await store.save(id,session);
         return json(res,200,{disconnected:true});
       }
+      if(url.pathname==='/api/bank/accounts'){
+        if(session.expires<=now())throw new BankError('Votre autorisation a expiré. Reconnectez Revolut.',409);
+        const fresh=await provider.request(`/sessions/${encodeURIComponent(session.bank.session_id)}`,{psu});
+        if(!Array.isArray(fresh?.accounts)||!fresh.accounts.length||fresh.accounts.length>30||(fresh.session_id&&fresh.session_id!==session.bank.session_id))throw new BankError('La banque n’a pas confirmé la liste des comptes autorisés. Renouvelez l’autorisation.',409);
+        const prior=new Map(session.bank.accounts.map(a=>[typeof a==='string'?a:a.uid,a]));
+        session.bank.accounts=fresh.accounts.map(account=>{const uid=typeof account==='string'?account:account?.uid;if(typeof uid!=='string'||!uid)throw new BankError('Identifiant de compte manquant.',502);const old=prior.get(uid);return {...(typeof old==='object'?old:{}),...(typeof account==='object'?account:{uid}),_importIdentity:transactionIdentity(old||account)};});session.cached=null;await store.save(id,session);
+        return json(res,200,await readAccountBalances(provider,session.bank.accounts,psu));
+      }
       if(url.pathname==='/api/bank/balances'){
         if(session.expires<=now())throw new BankError('Votre autorisation a expiré. Reconnectez Revolut.',409);
         return json(res,200,await readAccountBalances(provider,session.bank.accounts,psu));
       }
       if(url.pathname==='/api/bank/sync'){
         if(session.expires<=now())throw new BankError('Votre autorisation a expiré. Reconnectez Revolut.',409);
-        if(session.cached?.schemaVersion===2&&now()-session.lastSync<60000)return json(res,200,session.cached);
+        if(session.cached?.schemaVersion===3&&now()-session.lastSync<60000)return json(res,200,session.cached);
         const data=await readTransactions(provider,session.bank.accounts,psu);
         session.lastSync=now();session.cached={...data,syncedAt:session.lastSync};await store.save(id,session);
         return json(res,200,session.cached);

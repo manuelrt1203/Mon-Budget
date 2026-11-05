@@ -201,5 +201,28 @@ test('une ancienne réponse en cache est relue pour produire les catégories et 
  await f.request(`/api/bank/callback?code=x&state=${f.getAuth().state}`);
  const session=await store.get(id);session.lastSync=Date.now();session.cached={transactions:[],skipped:{invalid:12}};await store.save(id,session);
  const data=await(await f.request('/api/bank/sync',{method:'POST',body:{}})).json();
- assert.equal(data.schemaVersion,2);assert.equal(data.transactions.length,1);assert.ok(data.transactions[0].categorySource);assert.ok(data.diagnostics);
+ assert.equal(data.schemaVersion,3);assert.equal(data.transactions.length,1);assert.ok(data.transactions[0].categorySource);assert.ok(data.diagnostics);
+});
+
+test('relit seulement les comptes de la session autorisée et conserve les identifiants des écritures existantes',async t=>{
+ const accounts=[{uid:'account',account_type:'CACC',account_id:{iban:'FR7630006000011234567890189'}},{uid:'savings',account_type:'SVGS',currency:'EUR'}];
+ const baseProvider={configured:true,request:async(path,options={})=>{
+  if(path.startsWith('/aspsps'))return{aspsps:[{name:'Revolut',country:'FR'}]};
+  if(path==='/auth')return{url:'https://bank.example/auth'};
+  if(path==='/sessions')return{session_id:'same-session',accounts:[{uid:'account'}]};
+  if(path==='/sessions/same-session')return{session_id:'same-session',accounts};
+  if(path.endsWith('/balances'))return{balances:[{balance_amount:{amount:path.includes('savings')?'100':'20',currency:'EUR'},balance_type:'ITAV'}]};
+  if(path.startsWith('/accounts/'))return{transactions:[operation]};
+  throw new Error('Unexpected route');
+ }};
+ const store=new MemorySessionStore(),f=await fixture(t,{provider:baseProvider,store});
+ const started=await f.request('/api/bank/connect',{method:'POST',body:{}});
+ const id=started.headers.get('set-cookie').split(';')[0].split('=')[1],session=await store.get(id);
+ const linked=await f.request(`/api/bank/callback?code=x&state=${session.pending.state}`);assert.equal(linked.headers.get('location'),'/?bank=connected');
+ const old=await(await f.request('/api/bank/sync',{method:'POST',body:{}})).json();assert.equal(old.transactions.length,1);
+ assert.equal((await f.request('/api/bank/accounts',{method:'POST',body:{},withCookie:false})).status,401);
+ const updated=await(await f.request('/api/bank/accounts',{method:'POST',body:{}})).json();
+ assert.equal(updated.accounts.length,2);assert.equal(updated.accounts[1].type,'SVGS');assert.equal(updated.accounts[1].balances[0].amount,100);
+ const next=await(await f.request('/api/bank/sync',{method:'POST',body:{}})).json();assert.equal(next.transactions.length,2);assert.ok(next.transactions.some(t=>t.id===old.transactions[0].id));
+ assert.ok(!JSON.stringify(updated).includes(accounts[0].account_id.iban));
 });

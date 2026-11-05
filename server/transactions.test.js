@@ -31,7 +31,7 @@ test('borne les détails privés et conserve tous les compteurs sur plusieurs pa
  let calls=0;const rows=Array.from({length:80},()=>({...base,status:'PDNG'}));
  const result=await readTransactions({request:async()=>++calls===1?{transactions:rows,continuation_key:'next'}:{transactions:rows}},['account'],{});
  assert.equal(result.skipped.pending,160);assert.equal(result.diagnostics.items.length,100);assert.equal(result.diagnostics.omitted,60);assert.equal(result.diagnostics.reasonCounts.pending,160);
- assert.equal(result.schemaVersion,2);assert.ok(!JSON.stringify(result.diagnostics).includes('reference-1'));
+ assert.equal(result.schemaVersion,3);assert.ok(!JSON.stringify(result.diagnostics).includes('reference-1'));
 });
 
 test('n’écrase pas silencieusement deux montants différents associés à une même référence',async()=>{

@@ -43,6 +43,13 @@ export function createProvider({ appId, keyPath, privateKey, fetchImpl = fetch }
   };
 }
 
+export function transactionIdentity(account){
+  if(typeof account?._importIdentity==='string'&&account._importIdentity)return account._importIdentity;
+  const uid=typeof account==='string'?account:account?.uid;
+  const iban=typeof account?.account_id?.iban==='string'?account.account_id.iban.replace(/\s/g,'').toUpperCase():'';
+  return /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(iban)?iban:typeof account?.identification_hash==='string'&&account.identification_hash?account.identification_hash:uid;
+}
+
 export async function readTransactions(provider, accounts, psu) {
   if (!Array.isArray(accounts) || !accounts.length) throw new BankError('Aucun compte accessible. Reconnectez Revolut.', 409);
   if (accounts.length > 30) throw new BankError('Trop de comptes pour cette synchronisation.');
@@ -56,7 +63,7 @@ export async function readTransactions(provider, accounts, psu) {
     if (typeof uid !== 'string' || !uid) throw new BankError('Identifiant de compte absent de la réponse bancaire.');
     const iban = typeof account?.account_id?.iban === 'string' ? account.account_id.iban.replace(/\s/g,'').toUpperCase() : '';
     const stableIdentity = /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(iban) ? iban : typeof account?.identification_hash === 'string' && account.identification_hash ? account.identification_hash : null;
-    if (!stableIdentity) unstableAccounts++;
+    if (!stableIdentity || (account?._importIdentity && account._importIdentity!==stableIdentity)) unstableAccounts++;
     let continuation, pages = 0;
     const seen = new Set();
     do {
@@ -65,7 +72,7 @@ export async function readTransactions(provider, accounts, psu) {
       if (continuation) query.set('continuation_key', continuation);
       const result = await provider.request(`/accounts/${encodeURIComponent(uid)}/transactions?${query}`, { psu });
       if (!Array.isArray(result?.transactions)) throw new BankError('Liste des opérations absente de la réponse bancaire.');
-      const normalized = normalizeTransactions(stableIdentity || uid, result.transactions);
+      const normalized = normalizeTransactions(transactionIdentity(account), result.transactions);
       all.push(...normalized.transactions);
       for (const key of Object.keys(skipped)) skipped[key] += normalized.skipped[key];
       for(const [reason,count]of Object.entries(normalized.diagnostics.reasonCounts))diagnostics.reasonCounts[reason]=(diagnostics.reasonCounts[reason]||0)+count;
@@ -81,5 +88,5 @@ export async function readTransactions(provider, accounts, psu) {
   const byId=new Map();
   for(const t of all){const old=byId.get(t.id);if(old&&['amount','date','type'].some(key=>old[key]!==t[key]))throw new BankError('La banque a renvoyé une même référence pour des écritures différentes. Import interrompu pour éviter un montant erroné.');byId.set(t.id,t);}
   diagnostics.omitted=Object.values(skipped).reduce((a,b)=>a+b,0)-diagnostics.items.length;
-  return { schemaVersion:2,transactions:[...byId.values()],skipped,diagnostics,dateFrom,unstableAccounts };
+  return { schemaVersion:3,transactions:[...byId.values()],skipped,diagnostics,dateFrom,unstableAccounts };
 }

@@ -4,7 +4,7 @@ export function mountBank({ target, onSync }) {
   const section = document.createElement('section');
   section.className = 'panel bank-connection';
   section.setAttribute('aria-labelledby','bank-title');
-  section.innerHTML = `<div class="panel-head"><div><h2 id="bank-title">Mon compte Revolut</h2><p>Connexion en lecture seule · Compte personnel · France</p></div><span class="bank-badge" id="bank-badge">Vérification…</span></div><p id="bank-description"></p><div id="bank-overview" hidden></div><form id="bank-login" hidden><label for="bank-password">Mot de passe de votre espace bancaire</label><div class="bank-login-row"><input id="bank-password" type="password" autocomplete="current-password" required maxlength="256"><button class="primary" type="submit">Déverrouiller</button></div></form><div class="bank-actions"><label id="bank-choice-label" hidden>Connexion disponible <select id="bank-choice"></select></label><button class="primary" id="bank-connect" disabled>Connecter Revolut</button><button class="primary" id="bank-sync" hidden>Synchroniser maintenant</button><button class="text-button" id="bank-disconnect" hidden>Déconnecter</button><button class="text-button" id="bank-lock" hidden>Verrouiller l’accès</button></div><p class="bank-feedback" id="bank-feedback" role="status" aria-live="polite"></p><details class="import-report" id="bank-report" hidden></details><details class="bank-help"><summary>Comment fonctionne la connexion ?</summary><p>Vous autorisez la lecture de vos comptes depuis le parcours bancaire. Mon Budget n’a pas accès à votre mot de passe Revolut et ne peut pas effectuer de paiement.</p><p>Les opérations comptabilisées en euros des 90 derniers jours sont synchronisées à l’ouverture, puis toutes les 15 minutes lorsque le site est visible. Les autres devises et opérations en attente sont ignorées. Les virements sont inclus : ils peuvent nécessiter un ajustement de votre budget. Le solde du compte est lu séparément auprès de la banque : le disponible est privilégié lorsqu’il est fourni ; sinon le solde comptabilisé et sa date sont indiqués. Le résultat du mois est calculé à partir des opérations importées.</p><p>Les catégories utilisent les codes commerçants fournis par la banque, puis des règles de reconnaissance du libellé. Les suggestions sont signalées et les dépenses ambiguës restent « À classer ». Vos corrections manuelles sont conservées. La déconnexion révoque cette connexion ; les opérations déjà importées restent sur cet appareil. Une absence de 8 heures nécessite une nouvelle connexion. Les opérations importées restent dans votre navigateur.</p><p>Configuration initiale : enregistrez une application sur <a href="https://enablebanking.com/cp/applications" target="_blank" rel="noopener noreferrer">Enable Banking</a>, activez l’accès réel à Revolut France et configurez le serveur suivant le README. Ne saisissez aucun identifiant bancaire dans Mon Budget.</p></details>`;
+  section.innerHTML = `<div class="panel-head"><div><h2 id="bank-title">Mon compte Revolut</h2><p>Connexion en lecture seule · Compte personnel · France</p></div><span class="bank-badge" id="bank-badge">Vérification…</span></div><p id="bank-description"></p><div id="bank-overview" hidden></div><form id="bank-login" hidden><label for="bank-password">Mot de passe de votre espace bancaire</label><div class="bank-login-row"><input id="bank-password" type="password" autocomplete="current-password" required maxlength="256"><button class="primary" type="submit">Déverrouiller</button></div></form><div class="bank-actions"><label id="bank-choice-label" hidden>Connexion disponible <select id="bank-choice"></select></label><button class="primary" id="bank-connect" disabled>Connecter Revolut</button><button class="primary" id="bank-sync" hidden>Synchroniser maintenant</button><button class="text-button" id="bank-refresh-accounts" hidden>Actualiser les comptes</button><button class="text-button" id="bank-disconnect" hidden>Déconnecter</button><button class="text-button" id="bank-lock" hidden>Verrouiller l’accès</button></div><p class="bank-feedback" id="bank-feedback" role="status" aria-live="polite"></p><details class="import-report" id="bank-report" hidden></details><details class="bank-help"><summary>Comment fonctionne la connexion ?</summary><p>Vous autorisez la lecture de vos comptes depuis le parcours bancaire. Mon Budget n’a pas accès à votre mot de passe Revolut et ne peut pas effectuer de paiement.</p><p>Les opérations comptabilisées en euros des 90 derniers jours sont synchronisées à l’ouverture, puis toutes les 15 minutes lorsque le site est visible. Les autres devises et opérations en attente sont ignorées. Les virements entrants, sortants, vers l’épargne et depuis l’épargne sont présentés séparément des dépenses de consommation. Les suggestions sont modifiables : un virement peut aussi régler une dépense, auquel cas choisissez sa catégorie réelle. Le solde du compte est lu séparément auprès de la banque : le disponible est privilégié lorsqu’il est fourni ; sinon le solde comptabilisé et sa date sont indiqués. Le résultat du mois est calculé à partir des opérations importées.</p><p>Les catégories utilisent les codes commerçants fournis par la banque, puis des règles de reconnaissance du libellé. Les suggestions sont signalées et les dépenses ambiguës restent « À classer ». Vos corrections manuelles sont conservées. La déconnexion révoque cette connexion ; les opérations déjà importées restent sur cet appareil. Une absence de 8 heures nécessite une nouvelle connexion. Les opérations importées restent dans votre navigateur.</p><p>Le sélecteur affiche les comptes que la banque transmet pour cette autorisation. « Actualiser les comptes » relit cette liste. « Modifier les comptes autorisés » renouvelle le parcours bancaire. Pour un accès personnel restreint, le compte doit aussi être lié dans votre espace Enable Banking. Certains produits d’épargne ne sont pas exposés par l’API utilisée ; leur solde ne peut alors pas être lu par cette connexion.</p><p>Configuration initiale : enregistrez une application sur <a href="https://enablebanking.com/cp/applications" target="_blank" rel="noopener noreferrer">Enable Banking</a>, activez l’accès réel à Revolut France et configurez le serveur suivant le README. Ne saisissez aucun identifiant bancaire dans Mon Budget.</p></details>`;
   target.before(section);
   const $ = selector => section.querySelector(selector);
   let status = {}, busy = false, disposed = false;
@@ -23,7 +23,9 @@ export function mountBank({ target, onSync }) {
     if (!connected || locked) { balancePanel.clear(); importReport.clear(); }
     $('#bank-login').hidden = !(status.configured && locked);
     $('#bank-badge').textContent = connected ? 'Connecté' : status.configured ? locked ? 'Accès protégé' : 'À connecter' : 'Configuration requise';
-    $('#bank-connect').hidden = Boolean(connected);
+    $('#bank-connect').hidden = Boolean(locked);
+    $('#bank-connect').textContent = connected ? 'Modifier les comptes autorisés' : 'Connecter Revolut';
+    $('#bank-refresh-accounts').hidden = !connected;
     $('#bank-sync').hidden = !connected;
     $('#bank-disconnect').hidden = !connected;
     $('#bank-lock').hidden = !(status.requiresPassword && status.unlocked);
@@ -34,12 +36,12 @@ export function mountBank({ target, onSync }) {
       : status.configured && locked ? 'Déverrouillez la connexion avec le mot de passe Mon Budget configuré sur votre serveur. Ce mot de passe est distinct de celui de Revolut.' : status.securityConfigured === false ? 'Le mot de passe applicatif et le stockage sécurisé doivent être configurés avant de connecter la banque.' : status.configured ? 'Autorisez Revolut pour retrouver vos opérations ici, sans saisie manuelle.' : 'Le serveur doit être configuré avec une application Enable Banking avant de pouvoir connecter votre compte réel. Consultez les instructions ci-dessous.';
   }
   async function loadStatus() { status = await api('status'); display(); }
-  async function sync() {
+  async function sync(refreshAccounts=false) {
     if (busy || !status.connected || (status.requiresPassword && !status.unlocked)) return;
     busy = true; display(); feedback('Synchronisation en cours…');
     try {
       let balanceError = '';
-      try { balancePanel.update(await api('balances',{})); }
+      try { balancePanel.update(await api(refreshAccounts?'accounts':'balances',{})); }
       catch(error) { balanceError = error.message; balancePanel.fail(`Solde indisponible : ${error.message}`); }
       const data = await api('sync',{});
       const result = onSync(data.transactions);
@@ -62,8 +64,11 @@ export function mountBank({ target, onSync }) {
   };
   $('#bank-connect').onclick = async()=>{
     if (busy) return;
+    const renew = status.connected;
+    if (renew && !confirm('Renouveler les comptes autorisés ? La connexion actuelle sera révoquée avant de revenir au parcours Revolut. Votre historique sera conservé.')) return;
     busy = true; display(); feedback('Préparation du parcours Revolut…');
     try {
+      if (renew) { await api('disconnect',{}); await loadStatus(); }
       const data = await api('connect',$('#bank-choice').value ? { bank:$('#bank-choice').value } : {});
       if (data.banks) {
         $('#bank-choice').replaceChildren(...data.banks.map(name=>new Option(name,name)));
@@ -77,7 +82,8 @@ export function mountBank({ target, onSync }) {
     } catch(error) { feedback(error.message); }
     finally { busy = false; display(); }
   };
-  $('#bank-sync').onclick = sync;
+  $('#bank-sync').onclick = ()=>sync();
+  $('#bank-refresh-accounts').onclick = ()=>sync(true);
   $('#bank-lock').onclick = async()=>{
     if(busy)return;busy=true;display();
     try{await api('logout',{});await loadStatus();feedback('Accès bancaire verrouillé. Les données déjà présentes dans ce navigateur restent sur cet appareil.');}
@@ -97,6 +103,6 @@ export function mountBank({ target, onSync }) {
     feedback(outcome === 'connected' ? 'Autorisation reçue. Synchronisation…' : outcome === 'cancelled' ? 'Autorisation annulée. Aucune nouvelle connexion créée.' : 'La connexion n’a pas abouti. Réessayez depuis ce navigateur.');
   }
   loadStatus().then(()=>{ if(status.connected) return sync(); }).catch(()=>{ $('#bank-badge').textContent='Serveur indisponible'; $('#bank-description').textContent='La connexion bancaire est momentanément indisponible. Réessayez lorsque le serveur sera accessible.'; });
-  const interval = setInterval(()=>{ if(!disposed && document.visibilityState === 'visible') loadStatus().then(sync).catch(()=>feedback('Serveur bancaire indisponible.')); },15*60000);
+  const interval = setInterval(()=>{ if(!disposed && document.visibilityState === 'visible') loadStatus().then(()=>sync()).catch(()=>feedback('Serveur bancaire indisponible.')); },15*60000);
   window.addEventListener('pagehide',()=>{ disposed = true; clearInterval(interval); },{once:true});
 }
