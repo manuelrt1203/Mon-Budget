@@ -48,3 +48,7 @@ Aucun nom de variable ne doit commencer par `VITE_` pour ces identifiants. Aucun
 - La fonction bancaire est limitée à 180 secondes. Vérifier la compatibilité de cette durée avec l’offre Vercel choisie. Les sessions ne sont pas liées à un système de comptes utilisateurs : ce déploiement est destiné à un usage personnel, pas à un service bancaire ouvert au public.
 
 Le déploiement ne prouve pas l’accès réel à Revolut : celui-ci nécessite l’activation de l’application en production chez Enable Banking et le consentement de son titulaire.
+
+## Diagnostic de configuration
+
+`/api/bank/status` expose `missingConfiguration` : uniquement les noms des variables absentes ou invalides, sans leur valeur. `diagnosticVersion: 1` permet de vérifier que ce diagnostic a été déployé. Si la liste indique `APP_PASSWORD`, vérifier le nom exact, au moins 16 caractères, la portée Production et redéployer. Les variables Redis `KV_REST_API_URL` et `KV_REST_API_TOKEN` fournies par l’intégration Vercel sont acceptées sans les renommer. Ce diagnostic vérifie la présence et le format local des réglages ; il ne prouve pas l’autorisation effective chez les prestataires.

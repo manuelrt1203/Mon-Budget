@@ -182,3 +182,11 @@ test('accepte un corps déjà parsé par Vercel et refuse les requêtes mal form
  assert.equal((await invoke({bank:'x'.repeat(3000)})).code,413);
  assert.equal((await invoke({},{origin:'https://evil.example'})).code,403);
 });
+
+test('le statut expose seulement les noms de configuration nécessaires au diagnostic',async t=>{
+ const missingConfiguration=['APP_PASSWORD (au moins 16 caractères)','KV_REST_API_TOKEN ou UPSTASH_REDIS_REST_TOKEN'];
+ const f=await fixture(t,{origin:'https://budget.example',missingConfiguration});
+ const response=await f.request('/api/bank/status');const data=await response.json();
+ assert.equal(data.diagnosticVersion,1);assert.deepEqual(data.missingConfiguration,missingConfiguration);assert.equal(data.securityConfigured,false);
+ assert.ok(!JSON.stringify(data).includes('provider-session-SECRET'));
+});

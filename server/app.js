@@ -8,7 +8,7 @@ import { checkAccess, issueAccess, passwordMatches } from './access.js';
 const COOKIE='mb_bank', ACCESS='mb_access';
 const same=(a,b)=>typeof a==='string'&&typeof b==='string'&&Buffer.byteLength(a)===Buffer.byteLength(b)&&timingSafeEqual(Buffer.from(a),Buffer.from(b));
 function cookies(req){return Object.fromEntries(String(req.headers.cookie||'').split(';').map(c=>{const i=c.indexOf('=');return i<0?['','']:[c.slice(0,i).trim(),c.slice(i+1)];}));}
-export function createBankHandler({provider,origin,frontend=(_req,res)=>{res.writeHead(404);res.end();},now=Date.now,store=new MemorySessionStore(),accessPassword='',trustVercelProxy=false}){
+export function createBankHandler({provider,origin,frontend=(_req,res)=>{res.writeHead(404);res.end();},now=Date.now,store=new MemorySessionStore(),accessPassword='',trustVercelProxy=false,missingConfiguration=[]}){
   const expected=new URL(origin),hosted=expected.protocol==='https:';
   if(expected.origin!==origin||!['http:','https:'].includes(expected.protocol)||(expected.protocol==='http:'&&!['localhost','127.0.0.1','[::1]'].includes(expected.hostname)))throw new Error('APP_ORIGIN doit être une origine HTTPS, ou HTTP sur localhost.');
   const protectionRequired=hosted||Boolean(accessPassword);
@@ -34,7 +34,7 @@ export function createBankHandler({provider,origin,frontend=(_req,res)=>{res.wri
         const session=readySecurity&&unlocked&&id?await store.get(id):null;
         if(session)await store.touch(id);
         const connected=Boolean(session?.bank&&session.expires>now());
-        return json(res,200,{configured:provider.configured&&readySecurity,securityConfigured:readySecurity,requiresPassword:protectionRequired,unlocked,connected,expires:connected?session.expires:null,country:'FR',lastSync:connected?session.lastSync||null:null});
+        return json(res,200,{diagnosticVersion:1,missingConfiguration,configured:provider.configured&&readySecurity,securityConfigured:readySecurity,requiresPassword:protectionRequired,unlocked,connected,expires:connected?session.expires:null,country:'FR',lastSync:connected?session.lastSync||null:null});
       }
       if(!readySecurity)throw new BankError('Configurez le mot de passe et le stockage sécurisé du serveur avant d’activer la connexion bancaire.',503);
       const callback=req.method==='GET'&&url.pathname==='/api/bank/callback';
