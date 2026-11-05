@@ -109,7 +109,7 @@ export function createBankHandler({provider,origin,frontend=(_req,res)=>{res.wri
       }
       if(url.pathname==='/api/bank/sync'){
         if(session.expires<=now())throw new BankError('Votre autorisation a expiré. Reconnectez Revolut.',409);
-        if(session.cached&&now()-session.lastSync<60000)return json(res,200,session.cached);
+        if(session.cached?.schemaVersion===2&&now()-session.lastSync<60000)return json(res,200,session.cached);
         const data=await readTransactions(provider,session.bank.accounts,psu);
         session.lastSync=now();session.cached={...data,syncedAt:session.lastSync};await store.save(id,session);
         return json(res,200,session.cached);

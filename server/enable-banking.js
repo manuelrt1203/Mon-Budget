@@ -1,4 +1,6 @@
-import { createHash, createPrivateKey, sign } from 'node:crypto';
+import { normalizeTransactions } from './transactions.js';
+export { normalizeTransactions } from './transactions.js';
+import { createPrivateKey, sign } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 export class BankError extends Error {
@@ -41,29 +43,11 @@ export function createProvider({ appId, keyPath, privateKey, fetchImpl = fetch }
   };
 }
 
-export function normalizeTransactions(account, rows) {
-  const transactions = [], skipped = { pending: 0, currency: 0, invalid: 0 };
-  for (const row of rows) {
-    if (row.status !== 'BOOK') { skipped.pending++; continue; }
-    if (row.transaction_amount?.currency !== 'EUR') { skipped.currency++; continue; }
-    const ref = row.transaction_id || row.entry_reference;
-    const rawAmount = row.transaction_amount?.amount;
-    const date = row.booking_date;
-    if (!ref || !/^\d{4}-\d{2}-\d{2}$/.test(date || '') || Number.isNaN(Date.parse(date)) || new Date(date).toISOString().slice(0,10) !== date || !['DBIT', 'CRDT'].includes(row.credit_debit_indicator) || !/^\d+(\.\d{1,2})?$/.test(String(rawAmount))) { skipped.invalid++; continue; }
-    const cents = Math.round(Number(rawAmount) * 100);
-    if (!Number.isSafeInteger(cents) || cents <= 0) { skipped.invalid++; continue; }
-    const details = Array.isArray(row.remittance_information) ? row.remittance_information.filter(s => typeof s === 'string').join(' ') : '';
-    const label = (details.trim() || (row.credit_debit_indicator === 'CRDT' ? row.debtor?.name : row.creditor?.name) || 'Opération Revolut').slice(0,100);
-    const id = `bank-${createHash('sha256').update(JSON.stringify([account, String(ref)])).digest('hex')}`;
-    transactions.push({ id, label, amount: cents / 100, date, type: row.credit_debit_indicator === 'CRDT' ? 'income' : 'expense', category: 'Autres', source: 'revolut' });
-  }
-  return { transactions, skipped };
-}
-
 export async function readTransactions(provider, accounts, psu) {
   if (!Array.isArray(accounts) || !accounts.length) throw new BankError('Aucun compte accessible. Reconnectez Revolut.', 409);
   if (accounts.length > 30) throw new BankError('Trop de comptes pour cette synchronisation.');
-  const all = [], skipped = { pending: 0, currency: 0, invalid: 0 };
+  const all = [], skipped = { pending: 0, currency: 0, invalid: 0, status: 0, zero: 0 };
+  const diagnostics={reasonCounts:{},items:[],omitted:0,valueDateUsed:0};
   let unstableAccounts = 0;
   const dateFrom = new Date(Date.now() - 90 * 86400000).toISOString().slice(0,10);
   const startedAt = Date.now();
@@ -84,6 +68,9 @@ export async function readTransactions(provider, accounts, psu) {
       const normalized = normalizeTransactions(stableIdentity || uid, result.transactions);
       all.push(...normalized.transactions);
       for (const key of Object.keys(skipped)) skipped[key] += normalized.skipped[key];
+      for(const [reason,count]of Object.entries(normalized.diagnostics.reasonCounts))diagnostics.reasonCounts[reason]=(diagnostics.reasonCounts[reason]||0)+count;
+      diagnostics.items.push(...normalized.diagnostics.items.slice(0,Math.max(0,100-diagnostics.items.length)));
+      diagnostics.valueDateUsed+=normalized.diagnostics.valueDateUsed;
       continuation = result.continuation_key;
       pages++;
       if (continuation && (typeof continuation !== 'string' || seen.has(continuation) || pages >= 100)) throw new BankError('La synchronisation est incomplète. Aucune opération n’a été importée.');
@@ -91,5 +78,8 @@ export async function readTransactions(provider, accounts, psu) {
       if (all.length > 20000) throw new BankError('Trop d’opérations dans la réponse bancaire.');
     } while (continuation);
   }
-  return { transactions: [...new Map(all.map(t => [t.id, t])).values()], skipped, dateFrom, unstableAccounts };
+  const byId=new Map();
+  for(const t of all){const old=byId.get(t.id);if(old&&['amount','date','type'].some(key=>old[key]!==t[key]))throw new BankError('La banque a renvoyé une même référence pour des écritures différentes. Import interrompu pour éviter un montant erroné.');byId.set(t.id,t);}
+  diagnostics.omitted=Object.values(skipped).reduce((a,b)=>a+b,0)-diagnostics.items.length;
+  return { schemaVersion:2,transactions:[...byId.values()],skipped,diagnostics,dateFrom,unstableAccounts };
 }

@@ -14,3 +14,11 @@ test('refuse les réponses invalides avant toute modification des opérations',(
  assert.throws(()=>mergeBankTransactions(current,null),/invalides/);
  assert.throws(()=>mergeBankTransactions(current,[null]),/invalides/);
 });
+
+test('reclasse les anciens Autres et conserve les corrections manuelles, y compris Autres',()=>{
+ const auto={...t,label:'Utile',category:'Alimentation',categorySource:'rule',categoryReason:'Suggestion : commerçant alimentaire.'};
+ const upgraded=mergeBankTransactions([t],[auto]);assert.equal(upgraded.transactions[0].category,'Alimentation');assert.equal(upgraded.categorized,1);assert.equal(upgraded.updated,1);
+ const manual=mergeBankTransactions([{...t,categorySource:'manual'}],[auto]);assert.equal(manual.transactions[0].category,'Autres');assert.equal(manual.transactions[0].categorySource,'manual');
+ const corrected=mergeBankTransactions([{...t,category:'Loisirs'}],[auto]);assert.equal(corrected.transactions[0].category,'Loisirs');
+ const again=mergeBankTransactions(upgraded.transactions,[auto]);assert.equal(again.updated,0);assert.equal(again.unchanged,1);assert.equal(again.categorized,0);
+});

@@ -12,9 +12,9 @@ import { createProvider, normalizeTransactions, readTransactions } from './enabl
 const operation = { transaction_id:'tx-1', status:'BOOK', booking_date:'2026-11-01', transaction_amount:{amount:'12.50',currency:'EUR'}, credit_debit_indicator:'DBIT', remittance_information:['Courses'] };
 
 test('normalise uniquement les opérations comptabilisées en EUR, avec un identifiant stable',()=>{
- const result = normalizeTransactions('account',[operation,{...operation,status:'PDNG'},{...operation,transaction_amount:{amount:'5',currency:'USD'}},{...operation,booking_date:'2026-02-30'},{...operation,transaction_id:null},{...operation,transaction_amount:{amount:'-1',currency:'EUR'}}]);
+ const result = normalizeTransactions('account',[operation,{...operation,status:'PDNG'},{...operation,transaction_amount:{amount:'5',currency:'USD'}},{...operation,booking_date:'2026-02-30'},{...operation,transaction_id:null},{...operation,transaction_amount:{amount:'1.001',currency:'EUR'}}]);
  assert.equal(result.transactions.length,1);assert.equal(result.transactions[0].amount,12.5);assert.equal(result.transactions[0].type,'expense');assert.equal(result.transactions[0].category,'Autres');
- assert.deepEqual(result.skipped,{pending:1,currency:1,invalid:3});
+ assert.deepEqual(result.skipped,{pending:1,currency:1,invalid:3,status:0,zero:0});
  assert.equal(result.transactions[0].id,normalizeTransactions('account',[operation]).transactions[0].id);
  assert.notEqual(result.transactions[0].id,normalizeTransactions('another-account',[operation]).transactions[0].id);
  assert.equal(normalizeTransactions('account',[{...operation,credit_debit_indicator:'CRDT'}]).transactions[0].type,'income');
@@ -192,4 +192,14 @@ test('le statut expose seulement les noms de configuration nécessaires au diagn
  const response=await f.request('/api/bank/status');const data=await response.json();
  assert.equal(data.diagnosticVersion,1);assert.deepEqual(data.missingConfiguration,missingConfiguration);assert.equal(data.securityConfigured,false);
  assert.ok(!JSON.stringify(data).includes('provider-session-SECRET'));
+});
+
+test('une ancienne réponse en cache est relue pour produire les catégories et les motifs détaillés',async t=>{
+ const store=new MemorySessionStore(),f=await fixture(t,{store});
+ const started=await f.request('/api/bank/connect',{method:'POST',body:{}});
+ const id=started.headers.get('set-cookie').split(';')[0].split('=')[1];
+ await f.request(`/api/bank/callback?code=x&state=${f.getAuth().state}`);
+ const session=await store.get(id);session.lastSync=Date.now();session.cached={transactions:[],skipped:{invalid:12}};await store.save(id,session);
+ const data=await(await f.request('/api/bank/sync',{method:'POST',body:{}})).json();
+ assert.equal(data.schemaVersion,2);assert.equal(data.transactions.length,1);assert.ok(data.transactions[0].categorySource);assert.ok(data.diagnostics);
 });
