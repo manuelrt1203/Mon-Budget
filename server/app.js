@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { isIP } from 'node:net';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { BankError, readTransactions } from './enable-banking.js';
+import { readAccountBalances } from './balances.js';
 import { MemorySessionStore } from './session-store.js';
 import { checkAccess, issueAccess, passwordMatches } from './access.js';
 
@@ -101,6 +102,10 @@ export function createBankHandler({provider,origin,frontend=(_req,res)=>{res.wri
         try{await provider.request(`/sessions/${encodeURIComponent(session.bank.session_id)}`,{method:'DELETE',psu});}catch(error){if(!(error instanceof BankError)||error.status!==409)throw error;}
         delete session.bank;delete session.pending;delete session.cached;await store.save(id,session);
         return json(res,200,{disconnected:true});
+      }
+      if(url.pathname==='/api/bank/balances'){
+        if(session.expires<=now())throw new BankError('Votre autorisation a expiré. Reconnectez Revolut.',409);
+        return json(res,200,await readAccountBalances(provider,session.bank.accounts,psu));
       }
       if(url.pathname==='/api/bank/sync'){
         if(session.expires<=now())throw new BankError('Votre autorisation a expiré. Reconnectez Revolut.',409);

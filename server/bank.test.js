@@ -63,6 +63,7 @@ async function fixture(t,options={}) {
   if(path==='/auth'){authBody=request.body;return{url:'https://bank.example/authorize'};}
   if(path==='/sessions'){sessionCreates++;return{session_id:'provider-session-SECRET',accounts:[{uid:'account'}]};}
   if(path==='/sessions/provider-session-SECRET'&&request.method==='DELETE')return null;
+  if(path.endsWith('/balances'))return{balances:[{balance_amount:{amount:'263.18',currency:'EUR'},balance_type:'ITAV'}]};
   if(path.startsWith('/accounts/'))return{transactions:[operation]};
   throw new Error('Unexpected provider route');
  }};
@@ -102,6 +103,8 @@ test('consentement lié au navigateur, état à usage unique, synchronisation et
  assert.equal((await f.request(cb)).headers.get('location'),'/?bank=error');assert.equal(f.getCreates(),1);
  const status=await (await f.request('/api/bank/status')).text();assert.equal(JSON.parse(status).connected,true);assert.ok(!status.includes('SECRET'));
  const synced=await (await f.request('/api/bank/sync',{method:'POST',body:{}})).json();assert.equal(synced.transactions.length,1);
+ const balances=await (await f.request('/api/bank/balances',{method:'POST',body:{}})).json();assert.equal(balances.accounts[0].balances[0].amount,263.18);
+ assert.equal((await f.request('/api/bank/balances',{method:'POST',body:{},withCookie:false})).status,401);
  assert.equal((await f.request('/api/bank/sync',{method:'POST',body:{},withCookie:false})).status,401);
  assert.equal((await f.request('/api/bank/disconnect',{method:'POST',body:{}})).status,200);
  assert.equal((await (await f.request('/api/bank/status')).json()).connected,false);

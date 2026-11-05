@@ -1,6 +1,6 @@
 # Mon Budget
 
-Application web en français pour gérer son budget étudiant : revenus, dépenses, catégories, plafonds mensuels et solde. Les opérations sont conservées dans le stockage local du navigateur. Les plafonds sont communs à tous les mois ; le solde est le revenu moins les dépenses du mois, sans report ni équivalence avec le solde bancaire.
+Application web en français pour gérer son budget étudiant : revenus, dépenses, catégories, plafonds mensuels et solde. Les opérations sont conservées dans le stockage local du navigateur. Les plafonds sont communs à tous les mois ; le résultat du mois est le revenu moins les dépenses du mois, sans report. Le solde du compte est lu séparément auprès de Revolut.
 
 ## Développement
 
@@ -63,3 +63,9 @@ Ne pas saisir d’URL provisoire ou inaccessible dans le formulaire Enable Banki
 ## Mise en ligne HTTPS
 
 Le dépôt inclut `vercel.json` et une fonction Node.js `/api/bank/[...path]`. Consulter [le guide Vercel](DEPLOYMENT.md). Le site peut être publié avant toute configuration bancaire pour obtenir les trois URL HTTPS du formulaire Enable Banking. Les fonctions bancaires sont alors désactivées jusqu’à la configuration des clés, du mot de passe et de Redis.
+
+## Solde bancaire et résultat du mois
+
+Le bloc Revolut appelle `/api/bank/balances` après déverrouillage et lors des synchronisations. Chaque compte autorisé est lu séparément via `/accounts/{uid}/balances`. L’interface privilégie le disponible intrajournalier (`ITAV`), puis le comptabilisé intrajournalier (`ITBD`), puis les soldes de clôture `CLAV`/`CLBD` explicitement libellés. Elle affiche l’heure de consultation et la date bancaire si fournie ; aucun solde n’est recalculé à partir des opérations, aucun solde de plusieurs comptes n’est additionné. Seuls les soldes EUR exploitables sont affichés.
+
+Le sélecteur conserve uniquement l’identifiant dérivé du compte dans le navigateur, pas son solde. Le compte courant EUR est choisi par défaut s’il est identifié de façon unique ; sinon l’utilisateur choisit. Les identifiants serveur et l’IBAN complet ne sont pas renvoyés par ce nouvel endpoint. Un échec du solde n’empêche pas l’import d’opérations, et un échec de l’import ne supprime pas le solde récupéré. Une lecture précédente conservée à l’écran est explicitement signalée comme ancienne si l’actualisation échoue. Verrouiller ou déconnecter masque ce solde en mémoire. Le résultat du mois et les budgets restent calculés sur les opérations de tous les comptes importés et les saisies manuelles, distinctement du compte sélectionné.
