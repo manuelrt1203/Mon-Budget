@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createBankHandler } from '../server/app.js';
 import { MemorySessionStore } from '../server/session-store.js';
-import { createCloud, planSync, isEmptyState } from './cloud.js';
+import { createCloud, planSync, isEmptyState, mergeWithRemote } from './cloud.js';
 import { emptyState, applyLimits, defaultLimits } from './budget.js';
 
 const origin = 'http://localhost:5179';
@@ -42,6 +42,8 @@ test('planSync choisit la bonne action', () => {
   assert.equal(planSync({ local: withTx('a'), remote, knownRevision: 3, dirty: false }), 'adopt'); // un autre appareil a avancé
   assert.equal(planSync({ local: withTx('a'), remote, knownRevision: 3, dirty: true }), 'merge');
   assert.equal(planSync({ local: withTx('a'), remote, knownRevision: 0, dirty: false }), 'merge'); // historique inconnu
+  // Révision du serveur « en arrière » (coffre recréé) : on ne remplace pas des données locales plus récentes, on fusionne.
+  assert.equal(planSync({ local: withTx('a'), remote: { exists: true, revision: 1 }, knownRevision: 7, dirty: false }), 'merge');
   assert.equal(isEmptyState(emptyState()), true);
   assert.equal(isEmptyState(applyLimits(emptyState(), '2026-11', { ...defaultLimits, Santé: 1 }, 'month')), false);
 });
@@ -136,6 +138,59 @@ test('effacer sans accès ne détruit jamais la sauvegarde en ligne', async () =
   assert.deepEqual(locked.state.transactions.map(t => t.id), ['a', 'b']);
 });
 
+test('une modification faite pendant un envoi n’est pas perdue', async () => {
+  const base = shared();
+  let a;
+  let injected = false;
+  const fetchImpl = async (url, init) => {
+    if (String(url).endsWith('/backup/put') && !injected) { injected = true; a.state = withTx('a', 'late'); a.cloud.markDirty({}); }
+    return base(url, init);
+  };
+  a = device(fetchImpl, withTx('a'));
+  await a.cloud.sync(); // l'envoi part avec « a » ; « late » est ajoutée pendant la requête
+  assert.equal(a.storage.getItem('mon-budget-cloud-dirty'), '1');
+  await a.cloud.sync(); // la synchronisation suivante envoie « late »
+  const fresh = device(base);
+  await fresh.cloud.sync();
+  assert.deepEqual(fresh.state.transactions.map(t => t.id), ['a', 'late']);
+});
+
+test('un effacement demandé pendant une lecture n’est pas annulé par la restauration', async () => {
+  const base = shared();
+  await device(base, withTx('a', 'b')).cloud.sync();
+  let b;
+  let injected = false;
+  const fetchImpl = async (url, init) => {
+    const response = await base(url, init);
+    if (String(url).endsWith('/backup/get') && !injected) { injected = true; b.state = emptyState(); b.cloud.markDirty({ replace: true }); }
+    return response;
+  };
+  b = device(fetchImpl, emptyState());
+  await b.cloud.sync();
+  assert.equal(b.state.transactions.length, 0); // les données effacées ne reviennent pas
+  const check = device(base);
+  await check.cloud.sync();
+  assert.equal(check.state.transactions.length, 0); // et la sauvegarde en ligne a bien été vidée
+});
+
+test('la fusion garde les plafonds de la sauvegarde si ceux d’ici n’ont jamais été personnalisés', () => {
+  const remote = { ...emptyState(), transactions: [tx('r')], limits: { ...defaultLimits, Loisirs: 150 } };
+  const merged = mergeWithRemote(withTx('a'), remote);
+  assert.equal(merged.limits.Loisirs, 150);
+  assert.deepEqual(merged.transactions.map(t => t.id).sort(), ['a', 'r']);
+  assert.equal(mergeWithRemote({ ...withTx('a'), limits: { ...defaultLimits, Loisirs: 99 } }, remote).limits.Loisirs, 99);
+});
+
+test('signale une sauvegarde incomplète quand le serveur retient moins d’opérations', async () => {
+  const d = device(async url => (String(url).endsWith('/status')
+    ? Response.json({ securityConfigured: true, requiresPassword: false, unlocked: true })
+    : String(url).endsWith('/get') ? Response.json({ exists: false, durable: true })
+      : Response.json({ ok: true, durable: true, revision: 1, stored: 1 })), withTx('a', 'b'));
+  await d.cloud.sync();
+  assert.equal(d.cloud.status.phase, 'error');
+  assert.match(d.cloud.status.message, /n’a conservé que 1 opérations sur 2/);
+});
+
 test('serveur injoignable ou sauvegarde illisible : les données locales ne sont jamais touchées', async () => {
   const offline = device(async () => { throw new TypeError('network'); }, withTx('a'));
   await offline.cloud.sync();
@@ -148,6 +203,7 @@ test('serveur injoignable ou sauvegarde illisible : les données locales ne sont
   await unreadable.cloud.sync();
   assert.equal(unreadable.cloud.status.phase, 'error');
   assert.match(unreadable.cloud.status.message, /illisible/);
+  assert.equal(unreadable.cloud.status.code, 422); // c'est ce code, et non le texte, qui propose « Remplacer la sauvegarde en ligne »
   assert.equal(unreadable.state.transactions.length, 1);
   assert.deepEqual(unreadable.applied, []);
 });

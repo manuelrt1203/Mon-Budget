@@ -44,6 +44,8 @@ export function createBankHandler({provider,origin,frontend=(_req,res)=>{res.wri
       let body={};
       if(!callback){
         if(req.headers.origin!==origin||req.headers['content-type']?.split(';')[0]!=='application/json')return json(res,403,{error:'Origine de la demande non autorisée.'});
+        // Accès verrouillé : on refuse avant de lire un corps pouvant atteindre plusieurs Mo.
+        if(url.pathname.startsWith('/api/bank/backup/')&&!unlocked)throw new BankError('Déverrouillez l’accès bancaire avec votre mot de passe Mon Budget.',401);
         const bodyLimit=url.pathname==='/api/bank/backup/put'?3000000:2048; // seule la sauvegarde du budget est volumineuse
         let raw='';
         // Vercel can parse the body before invoking a Node.js function.
@@ -63,7 +65,7 @@ export function createBankHandler({provider,origin,frontend=(_req,res)=>{res.wri
       if(url.pathname.startsWith('/api/bank/backup/')){
         // Sauvegarde en ligne des données du budget : indépendante de la session bancaire et du cookie du navigateur,
         // donc elle survit à l'effacement des données du navigateur (accès par mot de passe, contenu chiffré).
-        if(!await store.allowed(`backup:${ip}`,60,60))throw new BankError('Trop de demandes de sauvegarde. Réessayez dans une minute.',429);
+        if(!await store.allowed(`backup:${ip}`,120,60))throw new BankError('Trop de demandes de sauvegarde. Réessayez dans une minute.',429);
         const durable=Boolean(store.durable);
         const describe=vault=>({durable,revision:vault.revision,updatedAt:vault.value.updatedAt,data:vault.value.data});
         if(url.pathname==='/api/bank/backup/get'){
@@ -73,12 +75,13 @@ export function createBankHandler({provider,origin,frontend=(_req,res)=>{res.wri
         if(url.pathname==='/api/bank/backup/put'){
           if(!body.data||typeof body.data!=='object'||!Array.isArray(body.data.transactions))throw new BankError('Sauvegarde illisible.',400);
           const expected=Number.isSafeInteger(body.revision)&&body.revision>=0?body.revision:0;
-          const saved=await store.saveVault(expected,{updatedAt:now(),data:normalizeState(body.data)},body.force===true);
+          const clean=normalizeState(body.data);
+          const saved=await store.saveVault(expected,{updatedAt:now(),data:clean},body.force===true);
           if(!saved.ok){
             const current=await store.getVault();
             return json(res,409,{error:'La sauvegarde en ligne a changé depuis votre dernière synchronisation.',conflict:true,...(current?{exists:true,...describe(current)}:{exists:false,durable})});
           }
-          return json(res,200,{ok:true,durable,revision:saved.revision});
+          return json(res,200,{ok:true,durable,revision:saved.revision,stored:clean.transactions.length}); // `stored` : le client détecte une sauvegarde tronquée
         }
         return json(res,404,{error:'Cette route n’existe pas.'});
       }

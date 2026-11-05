@@ -79,8 +79,10 @@ export class RedisSessionStore {
     const [dataKey,revKey]=this.vaultKeys();
     const [raw,revision]=await this.command(['MGET',dataKey,revKey]);
     if(!raw)return null;
+    // Des données sans numéro de version (clé perdue) ne doivent pas être lues comme « version 0 » : la protection contre les écrasements serait perdue.
+    if(revision===null||revision===undefined)throw new BankError('La sauvegarde en ligne est illisible : son numéro de version est manquant. Utilisez « Remplacer la sauvegarde en ligne ».',422);
     let value;
-    try{value=JSON.parse(gunzipSync(Buffer.from(this.decrypt(raw).gz,'base64')).toString('utf8'));}
+    try{value=JSON.parse(gunzipSync(Buffer.from(this.decrypt(raw).gz,'base64'),{maxOutputLength:16*1024*1024}).toString('utf8'));}
     catch{throw new BankError('La sauvegarde en ligne est illisible : le mot de passe applicatif a probablement changé. Vos données locales ne sont pas touchées.',422);}
     return {revision:Number(revision)||0,value};
   }

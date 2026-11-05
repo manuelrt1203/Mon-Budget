@@ -65,11 +65,12 @@ function applyState(next, { reason }) {
 }
 
 let lockedShown = false;
+/** Étiquette de la barre du mois : reflète l'état réel de la sauvegarde en ligne (y compris après un nouveau rendu). */
+const privacyText = () => (cloud.status.phase === 'idle' && cloud.status.durable ? 'Sauvegardé sur cet appareil et en ligne' : 'Historique sauvegardé sur cet appareil');
+
 function onCloudChange(status) {
-  const card = document.querySelector('#cloud-card');
-  if (card) card.innerHTML = cloudCardBody();
-  const online = status.phase === 'idle' && status.durable;
-  document.querySelectorAll('.privacy span').forEach(el => { el.textContent = online ? 'Sauvegardé sur cet appareil et en ligne' : 'Historique sauvegardé sur cet appareil'; });
+  updateCloudCard();
+  document.querySelectorAll('.privacy span').forEach(el => { el.textContent = privacyText(); });
   renderNotice();
   // Le bandeau « verrouillé » de la vue d'ensemble apparaît ou disparaît quand l'accès change.
   if ((status.phase === 'locked') !== lockedShown) { lockedShown = status.phase === 'locked'; if (routeName() === '') render(); }
@@ -186,7 +187,7 @@ function monthBar() {
       <button class="icon-btn bordered" data-action="next-month" aria-label="Mois suivant">${icon('chevron-right')}</button>
       ${month !== currentMonth() ? '<button class="btn ghost small" data-action="this-month">Ce mois-ci</button>' : ''}
     </div>
-    <p class="privacy">${icon('shield', 16)}<span>Historique sauvegardé sur cet appareil</span></p>
+    <p class="privacy">${icon('shield', 16)}<span>${privacyText()}</span></p>
   </div>`;
 }
 
@@ -407,7 +408,8 @@ function bankView() {
   <div id="bank-slot"></div>`;
 }
 
-function cloudCardBody() {
+/** Les trois zones de la carte : texte d'état (zone vivante, jamais recréée), avertissement et boutons. */
+function cloudParts() {
   const s = cloud.status;
   const when = s.lastSync ? new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'short' }).format(s.lastSync) : '';
   const text = {
@@ -418,15 +420,33 @@ function cloudCardBody() {
   }[s.phase] ?? escape(s.message);
   const warning = s.phase === 'idle' && s.durable === false
     ? `<p class="cloud-warning">${icon('alert', 16)}<span>Ce serveur (mode local) garde la sauvegarde en mémoire seulement : elle sera perdue à son arrêt.</span></p>` : '';
-  const unreadable = s.phase === 'error' && /illisible/.test(s.message);
+  const unreadable = s.phase === 'error' && s.code === 422; // coffre illisible côté serveur (mot de passe changé, version manquante)
   const buttons = s.phase === 'locked'
     ? '<a class="btn primary" href="#/banque">Déverrouiller</a>'
-    : `<button class="btn ghost" data-action="cloud-sync"${s.phase === 'syncing' ? ' disabled' : ''}>${icon('refresh', 18)}<span>Synchroniser maintenant</span></button>${unreadable ? `<button class="btn danger" data-action="cloud-replace">${icon('upload', 18)}<span>Remplacer la sauvegarde en ligne</span></button>` : ''}`;
+    : `<button class="btn ghost" data-action="cloud-sync">${icon('refresh', 18)}<span>Synchroniser maintenant</span></button>${unreadable ? `<button class="btn danger" data-action="cloud-replace">${icon('upload', 18)}<span>Remplacer la sauvegarde en ligne</span></button>` : ''}`;
+  return { text, warning, buttons };
+}
+
+function cloudCardBody() {
+  const { text, warning, buttons } = cloudParts();
   return `<span class="stat-icon">${icon('shield', 22)}</span>
     <div><h2>Sauvegarde en ligne</h2>
     <p>Une copie chiffrée de vos opérations et plafonds est conservée sur le serveur, protégée par votre mot de passe. Elle survit à l’effacement des données du navigateur : après un effacement, déverrouillez l’accès et vos mois reviennent.</p>
-    <p class="cloud-status" role="status">${text}</p>${warning}</div>
-    <div class="card-actions">${buttons}</div>`;
+    <p class="cloud-status" id="cloud-status" role="status">${text}</p><div id="cloud-warning">${warning}</div></div>
+    <div class="card-actions" id="cloud-actions">${buttons}</div>`;
+}
+
+/** Met la carte à jour sans la recréer : la zone d'état reste annoncée et le focus clavier est conservé. */
+function updateCloudCard() {
+  const status = document.querySelector('#cloud-status');
+  if (!status) return;
+  const { text, warning, buttons } = cloudParts();
+  status.innerHTML = text;
+  document.querySelector('#cloud-warning').innerHTML = warning;
+  const actions = document.querySelector('#cloud-actions');
+  const focused = actions.contains(document.activeElement) ? document.activeElement.dataset.action : null;
+  actions.innerHTML = buttons;
+  if (focused) actions.querySelector(`[data-action="${focused}"]`)?.focus();
 }
 
 function dataView() {
@@ -699,8 +719,9 @@ async function resetAll() {
   droppedAtLoad = 0;
   persist();
   render();
-  cloud.markDirty({ replace: true });
-  toast('Données effacées.');
+  await cloud.markDirty({ replace: true });
+  toast(['idle', 'off'].includes(cloud.status.phase) ? 'Données effacées.'
+    : 'Données effacées sur cet appareil. La sauvegarde en ligne, si elle existe, n’a pas pu être jointe (accès verrouillé ou serveur injoignable) : elle n’est pas effacée et vos données reviendront à la prochaine synchronisation.');
 }
 
 // ---------- Événements ----------
