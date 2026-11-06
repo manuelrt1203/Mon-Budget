@@ -143,7 +143,7 @@ test('une modification faite pendant un envoi n’est pas perdue', async () => {
   let a;
   let injected = false;
   const fetchImpl = async (url, init) => {
-    if (String(url).endsWith('/backup/put') && !injected) { injected = true; a.state = withTx('a', 'late'); a.cloud.markDirty({}); }
+    if (String(url).endsWith('/backup-put') && !injected) { injected = true; a.state = withTx('a', 'late'); a.cloud.markDirty({}); }
     return base(url, init);
   };
   a = device(fetchImpl, withTx('a'));
@@ -162,7 +162,7 @@ test('un effacement demandé pendant une lecture n’est pas annulé par la rest
   let injected = false;
   const fetchImpl = async (url, init) => {
     const response = await base(url, init);
-    if (String(url).endsWith('/backup/get') && !injected) { injected = true; b.state = emptyState(); b.cloud.markDirty({ replace: true }); }
+    if (String(url).endsWith('/backup-get') && !injected) { injected = true; b.state = emptyState(); b.cloud.markDirty({ replace: true }); }
     return response;
   };
   b = device(fetchImpl, emptyState());

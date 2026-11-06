@@ -43,7 +43,7 @@ export function createCloud({ getState, applyState, onChange = () => {}, fetchIm
   const failure = (message, httpStatus) => Object.assign(new Error(message), { status: httpStatus });
 
   async function call(path, body) {
-    const response = await fetchImpl(`/api/bank/backup/${path}`, {
+    const response = await fetchImpl(`/api/bank/backup-${path}`, {
       method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body ?? {}), signal: AbortSignal.timeout(30000),
     });

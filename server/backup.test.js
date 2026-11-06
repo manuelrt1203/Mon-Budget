@@ -23,46 +23,46 @@ function client(options = {}) {
 
 test('sauvegarde, relit, détecte les conflits et nettoie les données reçues', async () => {
   const call = client();
-  const empty = await call('/api/bank/backup/get');
+  const empty = await call('/api/bank/backup-get');
   assert.deepEqual([empty.code, empty.body.exists, empty.body.durable], [200, false, false]);
 
-  const first = await call('/api/bank/backup/put', { data: budget(), revision: 0 });
+  const first = await call('/api/bank/backup-put', { data: budget(), revision: 0 });
   assert.deepEqual([first.code, first.body.revision, first.body.stored], [200, 1, 1]); // `stored` : nombre d'opérations réellement conservées
 
-  const read = await call('/api/bank/backup/get');
+  const read = await call('/api/bank/backup-get');
   assert.equal(read.body.exists, true);
   assert.equal(read.body.revision, 1);
   assert.equal(read.body.data.transactions[0].label, 'Courses secrètes');
   assert.equal(read.body.data.limits.Alimentation, 123);
 
   // Un autre appareil encore à la révision 0 ne peut pas écraser : il reçoit l'état courant pour le fusionner.
-  const stale = await call('/api/bank/backup/put', { data: budget([]), revision: 0 });
+  const stale = await call('/api/bank/backup-put', { data: budget([]), revision: 0 });
   assert.deepEqual([stale.code, stale.body.conflict, stale.body.revision, stale.body.data.transactions.length], [409, true, 1, 1]);
 
-  assert.equal((await call('/api/bank/backup/put', { data: budget([]), revision: 1 })).body.revision, 2);
-  assert.equal((await call('/api/bank/backup/put', { data: budget([tx]), revision: 0, force: true })).body.revision, 3);
+  assert.equal((await call('/api/bank/backup-put', { data: budget([]), revision: 1 })).body.revision, 2);
+  assert.equal((await call('/api/bank/backup-put', { data: budget([tx]), revision: 0, force: true })).body.revision, 3);
 
   // Données invalides : rejetées ou nettoyées, jamais stockées telles quelles.
-  assert.equal((await call('/api/bank/backup/put', { data: {}, revision: 3 })).code, 400);
-  await call('/api/bank/backup/put', { data: budget([tx, { id: 'x', label: '<b>', amount: -5 }, { ...tx, id: 'bank-' + 'f'.repeat(64) }]), revision: 3 });
-  assert.equal((await call('/api/bank/backup/get')).body.data.transactions.length, 1);
+  assert.equal((await call('/api/bank/backup-put', { data: {}, revision: 3 })).code, 400);
+  await call('/api/bank/backup-put', { data: budget([tx, { id: 'x', label: '<b>', amount: -5 }, { ...tx, id: 'bank-' + 'f'.repeat(64) }]), revision: 3 });
+  assert.equal((await call('/api/bank/backup-get')).body.data.transactions.length, 1);
 });
 
 test('exige le déverrouillage quand un mot de passe est configuré', async () => {
   const call = client({ accessPassword: password });
-  assert.equal((await call('/api/bank/backup/get')).code, 401);
-  assert.equal((await call('/api/bank/backup/put', { data: budget(), revision: 0 })).code, 401);
+  assert.equal((await call('/api/bank/backup-get')).code, 401);
+  assert.equal((await call('/api/bank/backup-put', { data: budget(), revision: 0 })).code, 401);
   // Verrouillé, même un très gros corps reçoit un 401 (et non un 413) : il n'est pas lu avant le contrôle d'accès.
-  assert.equal((await call('/api/bank/backup/put', { data: budget(), revision: 0, pad: 'x'.repeat(3_100_000) })).code, 401);
+  assert.equal((await call('/api/bank/backup-put', { data: budget(), revision: 0, pad: 'x'.repeat(3_100_000) })).code, 401);
   assert.equal((await call('/api/bank/login', { password })).code, 200);
-  assert.equal((await call('/api/bank/backup/get')).code, 200);
+  assert.equal((await call('/api/bank/backup-get')).code, 200);
 });
 
 test('limite la taille d’une sauvegarde et le nombre de demandes', async () => {
   const call = client();
-  assert.equal((await call('/api/bank/backup/put', { data: budget(), revision: 0, pad: 'x'.repeat(3_100_000) })).code, 413);
-  for (let i = 0; i < 120; i++) await call('/api/bank/backup/get');
-  assert.equal((await call('/api/bank/backup/get')).code, 429);
+  assert.equal((await call('/api/bank/backup-put', { data: budget(), revision: 0, pad: 'x'.repeat(3_100_000) })).code, 413);
+  for (let i = 0; i < 120; i++) await call('/api/bank/backup-get');
+  assert.equal((await call('/api/bank/backup-get')).code, 429);
 });
 
 function fakeVaultRedis() {
