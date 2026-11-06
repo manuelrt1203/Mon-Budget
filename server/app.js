@@ -45,8 +45,8 @@ export function createBankHandler({provider,origin,frontend=(_req,res)=>{res.wri
       if(!callback){
         if(req.headers.origin!==origin||req.headers['content-type']?.split(';')[0]!=='application/json')return json(res,403,{error:'Origine de la demande non autorisée.'});
         // Accès verrouillé : on refuse avant de lire un corps pouvant atteindre plusieurs Mo.
-        if(url.pathname.startsWith('/api/bank/backup/')&&!unlocked)throw new BankError('Déverrouillez l’accès bancaire avec votre mot de passe Mon Budget.',401);
-        const bodyLimit=url.pathname==='/api/bank/backup/put'?3000000:2048; // seule la sauvegarde du budget est volumineuse
+        if(url.pathname.startsWith('/api/bank/backup-')&&!unlocked)throw new BankError('Déverrouillez l’accès bancaire avec votre mot de passe Mon Budget.',401);
+        const bodyLimit=url.pathname==='/api/bank/backup-put'?3000000:2048; // seule la sauvegarde du budget est volumineuse
         let raw='';
         // Vercel can parse the body before invoking a Node.js function.
         if(req.body!==undefined)raw=typeof req.body==='string'?req.body:JSON.stringify(req.body);
@@ -62,17 +62,17 @@ export function createBankHandler({provider,origin,frontend=(_req,res)=>{res.wri
       }
       if(!unlocked)throw new BankError('Déverrouillez l’accès bancaire avec votre mot de passe Mon Budget.',401);
       if(url.pathname==='/api/bank/logout'){res.setHeader('Set-Cookie',cookieHeader(ACCESS,'',0));return json(res,200,{unlocked:false});}
-      if(url.pathname.startsWith('/api/bank/backup/')){
+      if(url.pathname.startsWith('/api/bank/backup-')){
         // Sauvegarde en ligne des données du budget : indépendante de la session bancaire et du cookie du navigateur,
         // donc elle survit à l'effacement des données du navigateur (accès par mot de passe, contenu chiffré).
         if(!await store.allowed(`backup:${ip}`,120,60))throw new BankError('Trop de demandes de sauvegarde. Réessayez dans une minute.',429);
         const durable=Boolean(store.durable);
         const describe=vault=>({durable,revision:vault.revision,updatedAt:vault.value.updatedAt,data:vault.value.data});
-        if(url.pathname==='/api/bank/backup/get'){
+        if(url.pathname==='/api/bank/backup-get'){
           const vault=await store.getVault();
           return json(res,200,vault?{exists:true,...describe(vault)}:{exists:false,durable});
         }
-        if(url.pathname==='/api/bank/backup/put'){
+        if(url.pathname==='/api/bank/backup-put'){
           if(!body.data||typeof body.data!=='object'||!Array.isArray(body.data.transactions))throw new BankError('Sauvegarde illisible.',400);
           const expected=Number.isSafeInteger(body.revision)&&body.revision>=0?body.revision:0;
           const clean=normalizeState(body.data);
